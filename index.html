@@ -1,0 +1,1736 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Стыковка 3D</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f2e">
+<link rel="icon" href="data:,">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+/* Шрифт файлом рядом (PROTO-BASE §1/§11): Nunito, переменная насыщенность 200–1000, кириллица и латиница. Лицензия OFL. */
+@font-face{font-family:Nunito;font-weight:200 1000;font-display:swap;src:url('assets/fonts/nunito-latin.woff2') format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:Nunito;font-weight:200 1000;font-display:swap;src:url('assets/fonts/nunito-cyr.woff2') format('woff2');
+  unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+/* Палитра интерфейса — одно место (§9); 2D-слой эффектов читает цвета через getComputedStyle. Арт-библия — DESIGN.md. */
+:root{
+  --space:#0b0f2e; --ink:#f4f6ff; --muted:#a9b3e6; --navy:#1b2356; --navy2:#2a3577; --rim:#6f8cff;
+  --orange:#ff8a1f; --orange2:#ffb347; --gold:#ffc130; --cyan:#46e6ff; --solar:#ffd23d; --truss:#ff9a3d;
+  --ok:#5cf28a; --bad:#ff5a6e; --lamp:#ffd36b; --cool:#59c8ff; --gate:#b07bff;
+  --frame-w:440px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#05071a;color:var(--ink);font:800 16px/1.25 Nunito, system-ui, sans-serif;
+  overflow:hidden;overscroll-behavior:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+#frame{position:relative;width:min(100vw,var(--frame-w));height:100dvh;height:100svh;margin:0 auto;overflow:hidden;
+  background:var(--space) url('assets/bg1.jpg') center bottom/cover no-repeat;display:flex;flex-direction:column;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+#frame[data-ch="2"]{background-image:url('assets/bg2.jpg')}
+/* ---------- HUD: капсула GPT (panel-hud) как 9-slice; v1.1 — одна строка 48 px: цель, имя вещи с прогрессом, батарейки, звук ---------- */
+header{position:relative;z-index:3;margin:6px 5px 0;display:flex;align-items:center;gap:7px;min-height:48px;padding:0;pointer-events:none;
+  border-style:solid;border-width:14px 16px;border-image:url('assets/ui/panel-hud.png') 44 52 fill / 14px 16px / 0 stretch;margin-top:max(6px,env(safe-area-inset-top))}
+header > *{margin:-11px 0}
+#hud-goal{pointer-events:auto;width:44px;height:44px;flex:none;margin-left:-8px;border-radius:12px;background:radial-gradient(#2a3577,#141a45);box-shadow:inset 0 0 0 2px #34418c;overflow:hidden}
+#hud-goal img{width:100%;height:100%;object-fit:contain;display:block;transform:scale(1.25)}
+.hud-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;align-items:stretch}
+#hud-obj{font-weight:900;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 2px 0 rgba(0,0,0,.35)}
+#hud-obj i{font-style:normal;color:var(--muted);margin-right:5px}
+#hud-obj.long{font-size:12.5px}
+.prog-row{display:flex;align-items:center;gap:6px}
+#prog{flex:1;height:11px;border-radius:8px;background:#0c1238;box-shadow:inset 0 2px 3px rgba(0,0,0,.5),0 0 0 2px #3a4a9c;overflow:hidden}
+#prog-fill{height:100%;width:0;border-radius:8px;background:linear-gradient(#ffd27a,#ff8a1f 70%);transition:width .25s}
+#prog.bump{animation:bump .3s}
+@keyframes bump{50%{transform:scale(1.04,1.25)}}
+#prog-n{font-weight:900;font-size:12.5px;color:var(--gold);min-width:30px;text-align:right;text-shadow:0 1px 0 rgba(0,0,0,.5)}
+#bats{display:flex;gap:2px}
+#bats i{width:16px;height:26px;background:url('assets/ui/bat-on.png') center/contain no-repeat}
+#bats i.off{background-image:url('assets/ui/bat-off.png')}
+#bats i.blink{animation:blink .5s 2}
+@keyframes blink{50%{transform:scale(1.35);filter:brightness(2) hue-rotate(-30deg)}}
+#btn-mute{pointer-events:auto;width:40px;height:40px;flex:none;border:0;padding:0;margin-right:-6px;background:url('assets/ui/round-navy.png') center/contain no-repeat;display:grid;place-items:center}
+#btn-mute img{width:22px;height:22px;pointer-events:none}
+/* подпись под шапкой — только подсказка обучающего уровня; у остальных уровней строки нет, место отдано полю */
+#banner{position:relative;z-index:2;text-align:center;padding:3px 14px 0;pointer-events:none}
+/* цель уровня крупно: показывается на старте над полем и улетает в шапку; тап по цели в шапке показывает её снова */
+#goal-big{position:absolute;z-index:2;left:50%;top:70px;width:136px;height:136px;margin-left:-68px;object-fit:contain;pointer-events:none;display:none;
+  filter:drop-shadow(0 6px 12px rgba(0,0,0,.55))}
+#goal-big.show{display:block;animation:goalfly 2.2s cubic-bezier(.5,0,.3,1) forwards}
+@keyframes goalfly{0%{transform:scale(.85);opacity:1}8%{transform:scale(1.06)}14%{transform:scale(1)}66%{transform:scale(1);opacity:1}100%{transform:translate(var(--gx,-150px),var(--gy,-70px)) scale(.3);opacity:0}}
+#banner small{display:inline-block;font-weight:800;font-size:13px;line-height:1.2;color:var(--cyan);text-shadow:0 1px 0 rgba(0,0,0,.6)}
+/* ---------- поле: WebGL-сцена + 2D-слой эффектов (он же ловит касания) ---------- */
+#game{position:absolute;inset:0;z-index:1;touch-action:none}
+#game canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#fx{touch-action:none}
+.spacer{flex:1}
+/* ---------- кнопки GPT (btn-orange / btn-navy) как 9-slice ---------- */
+footer{position:relative;z-index:3;display:flex;gap:6px;justify-content:center;padding:0 8px calc(8px + env(safe-area-inset-bottom))}
+.b{font:900 17px/1 Nunito, system-ui, sans-serif;color:#fff;text-shadow:0 2px 0 rgba(120,40,0,.45);min-height:56px;padding:0 10px;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;background:none;border-style:solid;border-width:24px 28px;
+  border-image:url('assets/ui/btn-orange.png') 52 64 fill / 24px 28px / 0 stretch;transition:transform .08s}
+.b > *{margin:-20px 0}
+.b.navy{border-image-source:url('assets/ui/btn-navy.png');text-shadow:0 2px 0 rgba(0,0,0,.45)}
+.b img{width:26px;height:26px;pointer-events:none}
+.b span{white-space:nowrap}
+.b:active{transform:scale(.95)}
+.b:disabled{filter:grayscale(.85) brightness(.7);cursor:default}
+.b.pulse{animation:pulse .7s infinite}
+@keyframes pulse{50%{transform:scale(1.07);filter:brightness(1.25)}}
+footer .b{flex:1;min-width:0;font-size:15px;padding:0 4px;min-height:50px;border-width:21px 26px;border-image-width:21px 26px}
+footer .b > *{margin:-17px 0}
+footer .b img{width:23px;height:23px}
+/* ---------- экраны: панель GPT (panel-card) как 9-slice ---------- */
+#overlay{position:absolute;inset:0;z-index:5;display:none;align-items:center;justify-content:center;background:rgba(5,7,26,.5);padding:14px}
+#overlay.show{display:flex}
+#overlay.win{align-items:flex-end;background:linear-gradient(transparent 40%,rgba(5,7,26,.6));padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+.card{position:relative;width:100%;max-width:400px;max-height:calc(100% - 8px);overflow-y:auto;text-align:center;padding:4px 6px;
+  border-style:solid;border-width:30px;border-image:url('assets/ui/panel-card.png') 60 fill / 30px / 0 stretch;animation:pop .2s ease-out}
+@keyframes pop{from{transform:scale(.94)}to{transform:scale(1)}} /* стартует с видимого состояния (§9) */
+.card h1{margin:-8px 0 2px;font-weight:1000;font-size:34px;letter-spacing:.5px;line-height:1;color:#fff;text-shadow:0 3px 0 #c25400,0 6px 12px rgba(0,0,0,.4)}
+.card h1 span{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:10px;background:var(--orange);font-size:20px;vertical-align:6px;text-shadow:none;box-shadow:0 3px 0 #b35100}
+.card h2{margin:-6px 0 6px;font-weight:1000;font-size:25px;color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.35)}
+.card p{color:var(--muted);margin:4px 0 12px;font-weight:800;font-size:15px}
+.card .row{display:flex;gap:8px;justify-content:center;margin-top:8px}
+.card .row .b{flex:1;min-width:0;font-size:15px;padding:0;border-width:24px 21px;border-image-width:24px 21px}
+.emblem{width:96px;height:96px;margin:-6px auto 2px;display:block;object-fit:contain;filter:drop-shadow(0 6px 10px rgba(0,0,0,.45))}
+.shot{width:min(62vw,230px);height:min(62vw,230px);margin:-10px auto -6px;display:block;object-fit:contain;filter:drop-shadow(0 10px 16px rgba(0,0,0,.5))}
+.levels{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:10px 0 6px}
+.levels button{position:relative;aspect-ratio:1;border:0;padding:0;background:url('assets/ui/round-navy.png') center/contain no-repeat;
+  font:1000 18px/1 Nunito, system-ui, sans-serif;color:#fff;cursor:pointer;text-shadow:0 2px 0 rgba(0,0,0,.4)}
+.levels button.cur{background-image:url('assets/ui/round-orange.png')}
+.levels button:disabled{cursor:default;color:transparent;text-shadow:none}
+.levels button:disabled::after{content:'';position:absolute;inset:26%;background:url('assets/ui/ic-lock.png') center/contain no-repeat}
+.levels .mini{position:absolute;left:0;right:0;bottom:-3px;display:flex;justify-content:center}
+.levels .mini i{width:13px;height:13px;background:url('assets/ui/star-off.png') center/contain no-repeat}
+.levels .mini i.on{background-image:url('assets/ui/star-on.png')}
+.levels .ch{grid-column:1/-1;font-weight:900;font-size:13px;color:var(--muted);text-align:left;margin:4px 2px -2px}
+.stars{display:flex;justify-content:center;gap:4px;margin:2px 0 6px}
+.stars i{width:52px;height:52px;background:url('assets/ui/star-off.png') center/contain no-repeat}
+.stars i:nth-child(2){transform:translateY(-8px) scale(1.12)}
+.stars i.on{background-image:url('assets/ui/star-on.png')}
+.stars i.pop{animation:starpop .45s cubic-bezier(.3,1.8,.5,1) backwards}
+@keyframes starpop{from{transform:scale(.4)}}
+.cheats{margin-top:6px}
+.cheat{font:800 12px/1.2 Nunito, system-ui, sans-serif;padding:6px 10px;border-radius:10px;background:transparent;border:1.5px dashed var(--muted);color:var(--muted);cursor:pointer}
+.help-list{text-align:left;margin:0 0 10px;padding-left:20px;color:var(--ink);font-weight:800;font-size:15px}
+.help-list li{margin:6px 0}
+.help-list b{color:var(--orange2)}
+.hgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:8px 0}
+.hgrid div{position:relative;aspect-ratio:1;border-radius:14px;background:radial-gradient(#2a3577,#141a45);box-shadow:inset 0 0 0 2px #34418c}
+.hgrid div img{position:absolute;left:4px;top:0;width:calc(100% - 8px);height:calc(100% - 30px);object-fit:contain}
+.hgrid div.no img{opacity:.55}
+.hgrid div span{position:absolute;left:3px;right:3px;bottom:5px;font-weight:900;font-size:11px;letter-spacing:-.2px;line-height:1.05;color:#fff;text-shadow:0 1px 2px #000;}
+.hgrid div.no span{color:var(--muted)}
+.count{display:inline-block;margin:0 0 4px;padding:3px 12px;border-radius:12px;background:#0c1238;box-shadow:inset 0 0 0 2px #3a4a9c;font-weight:900;font-size:15px;color:var(--gold)}
+#toast{position:absolute;z-index:4;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%);max-width:88%;text-align:center;
+  background:rgba(16,22,64,.94);box-shadow:0 0 0 2px #4b63c9,0 6px 16px rgba(0,0,0,.4);padding:9px 14px;border-radius:14px;font-weight:800;font-size:14px;
+  pointer-events:none;opacity:.98;transition:opacity .25s}
+#toast.bad{box-shadow:0 0 0 2px var(--bad),0 6px 16px rgba(0,0,0,.4)}
+#toast.hide{opacity:0}
+#boot{position:absolute;inset:0;z-index:9;display:none;place-items:center;text-align:center;padding:30px;font-weight:800;color:var(--muted)}
+@media (prefers-reduced-motion: reduce){ #goal-big.show{display:none;animation:none} .card,.stars i.pop,#prog.bump,#bats i.blink,.b.pulse{animation:none} #toast,#prog-fill{transition:none} }
+</style>
+</head>
+<body>
+<div id="frame" data-ch="1">
+  <div id="game"><canvas id="cv3"></canvas><canvas id="fx"></canvas></div>
+  <header>
+    <div id="hud-goal"></div>
+    <div class="hud-mid"><span id="hud-obj"><i>1</i>Ракета</span><div class="prog-row"><div id="prog"><div id="prog-fill"></div></div><b id="prog-n">0/9</b></div></div>
+    <div id="bats"><i></i><i></i><i></i></div>
+    <button id="btn-mute" aria-label="звук"><img id="mute-ic" src="assets/ui/ic-sound.png" alt=""></button>
+  </header>
+  <div id="banner"></div>
+  <img id="goal-big" alt="">
+  <div class="spacer"></div>
+  <footer>
+    <button class="b" id="btn-undo"><img src="assets/ui/ic-undo.png" alt=""><span>Отмена</span></button>
+    <button class="b navy" id="btn-reset"><img src="assets/ui/ic-restart.png" alt=""><span>Заново</span></button>
+    <button class="b navy" id="btn-menu"><img src="assets/ui/ic-menu.png" alt=""><span>Меню</span></button>
+  </footer>
+  <div id="overlay"><div class="card" id="card"></div></div>
+  <div id="toast" class="hide"></div>
+  <div id="boot">3D не запустилось на этом устройстве (WebGL выключен). Попробуй другой браузер.</div>
+</div>
+<script src="vendor/three.js"></script>
+<script src="assets/scene3d.js"></script>
+<script>
+'use strict';
+/* ЯДРО */
+// ---------------------------------------------------------------------------
+// «Стыковка 3D». Правила — как в «Стыковке» v0.4 (~/Claude/Projects/stykovka), меняется источник уровней:
+// чертёж — узнаваемый объект (ракета, спутник, станция с кольцом, лунный модуль, корабль…) из каталога OBJECTS.
+// Поле w×h, ядро станции, пунктиром — чертёж (какие клетки и каким типом модуля заполнить). По краям — очереди
+// модулей, у каждой своя линия (ряд или столбец) и сторона входа. Тап по очереди: передний модуль летит прямо по
+// линии и встаёт в клетку перед первым занятым (станция, обломок, закрытое поле).
+//   dock     — встал в пунктир своего типа: защёлкнулся, клетка заполнена;
+//   crooked  — встал вне чертежа или не в свой тип: модуль отстёгивается и возвращается в очередь, −1 батарейка;
+//   off      — ничего не задел, улетел: возвращается, −1 батарейка;
+//   blocked  — линия занята у самого края (или застрял на отражателе): то же, что промах.
+// Отмена последней стыковки — тоже −1 батарейка. Батарейки кончились — проигрыш.
+// Тупик (чертёж уже не достроить) ядро видит сразу: dead = true.
+// ---------------------------------------------------------------------------
+const CFG = {
+  // правила
+  BATTERIES: 3,          // батареек на уровень (звёзды за победу = сколько осталось)
+  MISS_COST: 1,          // цена промаха (мимо станции, вне чертежа, не тот тип)
+  UNDO_COST: 1,          // цена отмены последней стыковки
+  // солвер и боты
+  SOLVE_CAP: 120000,     // предел узлов перебора; выше — «не знаем», тупик не объявляем
+  NOVICE_RUNS: 300,      // партий бота-новичка на уровень в аудите
+  // генератор уровней от формы объекта (genObject)
+  GEN_TRIES: 40,         // попыток найти порядок постройки (порядок = решение) на одну расстановку препятствий
+  GEN_LAYOUTS: 8,        // расстановок препятствий на один сид, если порядок не нашёлся
+  GEN_QUEUE_W: 1.6,      // множитель веса для уже занятой очереди: чаще «второй встаёт дальше»
+  GEN_DEBRIS_W: 2.5,     // множитель веса, если модуль встаёт об обломок: обломки участвуют в решении
+  GEN_MIRROR_W: 3,       // множитель веса для полёта через отражатель
+  GEN_GATE_W: 3,         // множитель веса для полёта сквозь открытое поле или упора в закрытое
+  DEPTH_LR: 2,           // глубина очереди слева и справа (места по ширине мало)
+  DEPTH_TB: 3,           // глубина очереди сверху и снизу
+  DEBRIS_MIN_R: 2,       // обломок не ближе этого (по Чебышёву) к ядру
+  OBS_WIDE: 5,           // объект шириной от стольких клеток не расширяет поле по горизонтали препятствиями (клетка крупнее)
+  CROP_PAD: 0,           // запас пустых клеток вокруг станции после обрезки поля (v0.4: 1; в 3D поле вплотную — клетка крупнее)
+  MAX_W: 6,              // ширина поля не больше (иначе клетка на телефоне мельчает; аудит проверяет)
+  // ---- оболочка: анимация и ощущение (мс; расстояния — в клетках) ----
+  FLY_CPS: 13,           // средняя скорость полёта модуля, клеток в секунду (разгон, потом торможение у шва)
+  FLY_MIN_MS: 260,       // минимальная длительность полёта
+  FLY_IMPACT: 0.6,       // скорость в момент касания (доля средней): удар чувствуется, но модуль уже затормозил
+  APPROACH: 0.3,         // доля пути «подлёта»: модуль тормозит и чуть разворачивается, магнит доворачивает его при касании
+  TWIST_RAD: 0.32,       // перекос модуля на подлёте (рад), магнит выправляет пружиной
+  RETURN_MS: 420,        // модуль после промаха возвращается в очередь
+  WOBBLE_MS: 300,        // покачивание кривого модуля перед возвратом
+  SQUASH_MS: 220,        // сплющивание модуля от удара
+  LATCH_MS: 260,         // лапы-защёлки обхватывают шов
+  LATCH_HOLD_MS: 520,    // лапы видны после захвата, потом уходят в муфту
+  WING_QUEUE: 0,         // раскрытие крыльев панели в очереди и в полёте: 0 — сложены стопкой на хабе (сверху — синяя панель в раме), 1 — раскрыты
+  UNFOLD_MS: 340,        // раскрытие крыльев солнечной панели (начинается после защёлок)
+  LIGHTS_MS: 300,        // в окнах загорается свет (начинается после защёлок)
+  SHAKE_MS: 160,         // дрожь станции от стыковки
+  SHAKE_U: 0.035,        // её амплитуда, клеток
+  INTRO_MS: 800,         // появление уровня: чертёж волной от ядра, очереди подъезжают
+  PRESS_SCALE: 0.9,      // модуль под пальцем поджимается
+  TRAIL_GHOSTS: 3,       // шлейф летящего модуля (полупрозрачные копии позади)
+  WORD_MS: 950,          // всплывающее слово
+  STREAK_WORDS: { 3: 'Чётко!', 5: 'Ас стыковки!', 8: 'Космос!' },   // слова за серию стыковок без промаха
+  PARTS_MAX: 320,        // предел частиц на экране
+  CONFETTI_N: 70,        // конфетти на победе
+  WIN_WAVE_MS: 90,       // волна огней от ядра: задержка на клетку расстояния
+  DECO_STEP_MS: 120,     // детали вида достраиваются по одной
+  LIFT_MS: 950,          // готовый объект улетает в ангар
+  LOSE_DELAY_MS: 1200,   // станция гаснет до карточки проигрыша
+  TOAST_MS: 2200,        // сколько висит тост
+  TOAST_REPEAT: 2,       // объяснение промаха тостом — первые N раз за сессию, дальше только слово на месте
+  HINT_IDLE_MS: 5000,    // подсказка на обучающих уровнях после бездействия
+  AMBIENT_VOL: 0.03,     // громкость фонового гула
+  // очереди (v1.1): ширина экрана — узкое место, высоты хватает. Сверху и снизу очередь стоит в линию; по бокам на
+  // площадке только передний модуль, а следующий показан значком на её углу — так клетка на телефоне 54 px вместо 44
+  Q_EDGE0: 0.17,         // зазор между кромкой клеток и передним модулем очереди (в нём стрелка «куда полетит»)
+  Q_GAP: 0.05,           // зазор между модулями очереди
+  Q_FRONT_TB: 0.92,      // размер переднего модуля сверху и снизу (доля клетки)
+  Q_NEXT_TB: 0.68,       // размер модулей позади него
+  Q_FRONT_LR: 0.86,      // размер переднего модуля слева и справа
+  Q_CHIP: 0.45,          // значок следующего модуля в боковой очереди: сторона, клеток (на телефоне не меньше ~24 px)
+  Q_CHIP_IN: 0.14,       // значок сдвинут от дальнего края площадки внутрь на столько
+  Q_CHIP_LAT: 0.36,      // и вверх по экрану от оси очереди на столько
+  Q_SLIDE_MS: 240,       // очередь подтягивается: следующий модуль едет на площадку (значок вырастает в модуль); до конца очередь не запускается
+  TRUSS_LEN: 1.86,       // длина фермы, клеток
+  TRUSS_Q: 0.58,         // ферма в очереди сложена: длина × это; в полёте раздвигается до полной
+  TRUSS_OPEN: 0.35,      // доля полёта, за которую ферма раздвигается
+  MAX_CELL_PX: 72,       // клетка на экране не крупнее (маленькие уровни не раздуваются)
+  DOCK_WAVE_MS: 70,      // стыковка: огни станции вспыхивают волной от шва, задержка на клетку
+  DOCK_PUNCH: 0.014,     // стыковка: камера на миг приближается на эту долю
+};
+
+// Значения occ; > 0 — пристыкованный модуль этого типа.
+// Отражатель '/' поворачивает полёт (dx,dy)→(−dy,−dx), '\\' — (dx,dy)→(dy,dx); сам не занимается, модуль проходит сквозь.
+// Силовое поле — преграда, пока стыковок меньше порога (gate[i]), потом пропускает; клетка под ним может быть в чертеже.
+const EMPTY = 0, DEBRIS = -1, CORE = -2, MIRROR_A = -3, MIRROR_B = -4, GATE = -5;
+const HULL = 1, SOLAR = 2, TRUSS = 3;      // жилая капсула, солнечная панель (раскладные крылья), ферма (решётка на 2 клетки)
+const MOD_LEN = { 1: 1, 2: 1, 3: 2 };      // длина модуля в клетках по типу
+const SIDES = ['T', 'R', 'B', 'L'];
+const DIR = { L: [1, 0], R: [-1, 0], T: [0, 1], B: [0, -1] };   // направление полёта от стороны входа
+const KIND_CH = { o: HULL, s: SOLAR, t: TRUSS };
+const isMirror = (v) => v === MIRROR_A || v === MIRROR_B;
+
+// Детерминированный генератор случайных чисел (PROTO-BASE §5). Math.random() в ядре не используется.
+function mulberry32(seed){
+  let a = seed >>> 0;
+  return function(){
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Каталог объектов: чертёж — это вещь. Карта: 'C' ядро, 'o' жилая капсула, 's' солнечная панель, '*' капсула или панель
+// (по сиду, доля p.solar), цифра — ферма (пара одинаковых цифр рядом = одна ферма на 2 клетки), '.' пусто.
+// deco — детали, которых нет в правилах, но которые делают вещь узнаваемой: нос, сопла, стабилизаторы, тарелка, мачта,
+// посадочные опоры, кольцо вокруг ядра. Клетка + сторона, куда деталь смотрит. До победы они видны голограммой
+// чертежа, после — достраиваются по-настоящему. sym — объект симметричен, зеркалить не нужно.
+// Масштаб на 1000 уровней: объект × зеркало × '*' × препятствия × порядок постройки (его выбирает генератор).
+const OBJECTS = {
+  rocket: { name: 'Ракета', sym: true, map: ['.o.', '.o.', 'oCo', 'ooo', 'o.o'],
+    deco: [{ t: 'nose', c: [1, 0], d: 'T' }, { t: 'engine', c: [0, 4], d: 'B' }, { t: 'engine', c: [2, 4], d: 'B' }, { t: 'fin', c: [0, 3], d: 'L' }, { t: 'fin', c: [2, 3], d: 'R' }] },
+  cross: { name: 'Станция-крест', sym: true, map: ['..o..', '.ooo.', 'ooCoo', '.ooo.', '..o..'],
+    deco: [{ t: 'dish', c: [2, 0], d: 'T' }, { t: 'mast', c: [2, 4], d: 'B' }, { t: 'mast', c: [0, 2], d: 'L' }, { t: 'mast', c: [4, 2], d: 'R' }] },
+  satellite: { name: 'Спутник', sym: true, map: ['.ooo.', 'ssCss', 's.o.s'],
+    deco: [{ t: 'dish', c: [2, 0], d: 'T' }, { t: 'mast', c: [2, 2], d: 'B' }] },
+  powerplant: { name: 'Электростанция', sym: true, map: ['.ooo.', 'ssCss', '.ooo.'],
+    deco: [{ t: 'dish', c: [2, 0], d: 'T' }, { t: 'mast', c: [1, 2], d: 'B' }, { t: 'mast', c: [3, 2], d: 'B' }, { t: 'ring', c: [2, 1] }] },
+  lander: { name: 'Лунный модуль', sym: true, map: ['.ooo.', '.oCo.', '.o.o.', 'oo.oo'],
+    deco: [{ t: 'dish', c: [2, 0], d: 'T' }, { t: 'leg', c: [0, 3], d: 'B' }, { t: 'leg', c: [4, 3], d: 'B' }, { t: 'engine', c: [2, 1], d: 'B' }] },
+  city: { name: 'Орбитальный город', sym: true, map: ['..o..', 's*o*s', '.oCo.', 's*o*s', '..o..'],
+    deco: [{ t: 'mast', c: [2, 0], d: 'T' }, { t: 'mast', c: [2, 4], d: 'B' }, { t: 'ring', c: [2, 2] }] },
+  ring: { name: 'Станция-кольцо', sym: true, map: ['ooo', 'oCo', 'ooo'],
+    deco: [{ t: 'ring', c: [1, 1] }, { t: 'dish', c: [1, 0], d: 'T' }] },
+  ringwings: { name: 'Кольцо с крыльями', sym: true, map: ['.ooo.', 'soCos', '.ooo.'],
+    deco: [{ t: 'ring', c: [2, 1] }, { t: 'dish', c: [2, 0], d: 'T' }] },
+  tug: { name: 'Буксир', map: ['oo.', '.oC', '.oo', '..o'],
+    deco: [{ t: 'nose', c: [2, 3], d: 'B' }, { t: 'engine', c: [0, 0], d: 'L' }, { t: 'dish', c: [1, 0], d: 'T' }] },
+  mast: { name: 'Мачта связи', sym: true, map: ['.o1o.', '.o1o.', '22C33', '..o..', '..o..'],
+    deco: [{ t: 'dish', c: [2, 0], d: 'T' }, { t: 'mast', c: [2, 4], d: 'B' }] },
+  ship: { name: 'Звездолёт', sym: true, map: ['..o..', '.ooo.', '11C22', '.ooo.', '.o.o.'],
+    deco: [{ t: 'nose', c: [2, 0], d: 'T' }, { t: 'engine', c: [1, 4], d: 'B' }, { t: 'engine', c: [3, 4], d: 'B' }, { t: 'fin', c: [0, 2], d: 'L' }, { t: 'fin', c: [4, 2], d: 'R' }] },
+  shipyard: { name: 'Солнечная верфь', sym: true, map: ['.sos.', '11C22', '.sos.'],
+    deco: [{ t: 'mast', c: [2, 0], d: 'T' }, { t: 'mast', c: [2, 2], d: 'B' }, { t: 'ring', c: [2, 1] }] },
+  dock: { name: 'Звёздный док', sym: true, map: ['..o..', '.sos.', '11C22', '.ooo.', '..o..'],
+    deco: [{ t: 'dish', c: [2, 0], d: 'T' }, { t: 'mast', c: [2, 4], d: 'B' }, { t: 'ring', c: [2, 2] }] },
+};
+
+// Контент. Обучающие уровни — картой: '.' пусто, 'C' ядро, '#' обломок, 'o' пунктир жилой капсулы,
+// 's' пунктир солнечной панели; очереди — 'сторона+индекс:типы, передний первым' (T/B — столбец, L/R — ряд).
+// name и deco — какая вещь получится (координаты деталей — в клетках карты).
+// Остальные — генератор genObject(gen, seed) от формы объекта; сид подобран `node sim.mjs pick` под полосу band
+// (доля партий новичка без единого тупика). Сид = номер уровня × 1000 + подбор.
+const LEVELS = [
+  { n: 1, title: 'Первая стыковка', hint: 'Тапни модуль — он полетит к станции', name: 'Зонд',
+    map: ['.....', '.....', '.oCo.', '.....', '.....'], q: ['L2:o', 'R2:o'], deco: [{ t: 'dish', c: [2, 2], d: 'T' }] },
+  { n: 2, title: 'Очередь', hint: 'Значок на углу — следующий в очереди. Он встанет на шаг дальше', name: 'Буй',
+    map: ['.....', '..o..', 'ooCo.', '.....', '.....'], q: ['L2:oo', 'R2:o', 'T2:o'], deco: [{ t: 'mast', c: [2, 1], d: 'T' }, { t: 'mast', c: [0, 2], d: 'L' }] },
+  { n: 3, title: 'Не сейчас', hint: 'Мимо станции — улетит. Сначала подставь опору', name: 'Маяк',
+    map: ['.....', '.o...', '.oCo.', '...o.', '.....'], q: ['L2:o', 'T1:o', 'R2:o', 'B3:o'], deco: [{ t: 'dish', c: [1, 1], d: 'T' }, { t: 'mast', c: [3, 3], d: 'B' }] },
+  { n: 4, title: 'Чужое место', hint: 'Встал в пунктир — ещё не значит, что на своё место', name: 'Челнок',
+    map: ['.....', '.o...', 'ooC..', '.oo..', '.....'], q: ['B2:o', 'L3:o', 'L2:oo', 'T1:o'],
+    deco: [{ t: 'nose', c: [1, 1], d: 'T' }, { t: 'engine', c: [1, 3], d: 'B' }, { t: 'engine', c: [2, 3], d: 'B' }, { t: 'fin', c: [0, 2], d: 'L' }] },
+  { n: 5, title: 'Ракета', gen: { obj: 'rocket' }, band: [0.45, 0.9], seed: 5002 },
+  { n: 6, title: 'Крестовина', gen: { obj: 'cross' }, band: [0.45, 0.8], seed: 6008 },
+  { n: 7, title: 'Солнечные панели', hint: 'Панель встаёт только в жёлтый пунктир', gen: { obj: 'satellite' }, band: [0.5, 0.95], seed: 7002 },
+  { n: 8, title: 'Электростанция', gen: { obj: 'powerplant' }, band: [0.35, 0.75], seed: 8010 },
+  { n: 9, title: 'Пояс обломков', hint: 'Об обломок модуль тоже стукнется', gen: { obj: 'lander', debris: 2 }, need: { debrisHits: 1 }, band: [0.4, 0.8], seed: 9005 },
+  { n: 10, title: 'Орбитальный город', gen: { obj: 'city', solar: 0.5, debris: 1 }, band: [0.3, 0.7], seed: 10003 },
+  // Глава 2 «Красная планета»: сложность не числом модулей, а новыми элементами и их сочетанием.
+  // Карта: '/' и '\\' — отражатели, 'g' — силовое поле, 'G' — поле над клеткой чертежа (жилой), пороги — gates[] по порядку чтения;
+  // цифра — пунктир фермы (одна цифра = одна ферма на 2 клетки). need — что обязано участвовать в решении (для pick).
+  { n: 11, ch: 2, title: 'Отражатель', hint: 'Отражатель поворачивает модуль на 90°', name: 'Разведчик',
+    map: ['.......', '.......', '.\\oCo..', '...o...', '.......'], q: ['T1:o', 'R2:o', 'B3:o'], deco: [{ t: 'dish', c: [3, 2], d: 'T' }, { t: 'mast', c: [3, 3], d: 'B' }, { t: 'engine', c: [4, 2], d: 'R' }] },
+  { n: 12, ch: 2, title: 'Зеркальный коридор', gen: { obj: 'ring', mirrors: 2 }, need: { mirrorHits: 2 }, band: [0.5, 0.85], seed: 12001 },
+  { n: 13, ch: 2, title: 'Ферма', hint: 'Ферма длиной в две клетки — и пунктир у неё двойной', name: 'Мачта',
+    map: ['.....', '..1..', '..1..', '.oCo.', '..2..', '..2..', '.....'], q: ['T2:t', 'L3:o', 'B2:t', 'R3:o'], deco: [{ t: 'dish', c: [2, 1], d: 'T' }, { t: 'mast', c: [2, 5], d: 'B' }] },
+  { n: 14, ch: 2, title: 'Мачты', gen: { obj: 'mast' }, need: { trusses: 3 }, band: [0.45, 0.85], seed: 14012 },
+  { n: 15, ch: 2, title: 'Силовое поле', hint: 'Поле пропустит после двух стыковок — число на нём', name: 'Шлюз',
+    map: ['.......', '....o..', '..GoCo.', '.......', '.......'], q: ['L2:oo', 'T4:o', 'R2:o'], gates: [2], deco: [{ t: 'dish', c: [4, 1], d: 'T' }, { t: 'mast', c: [5, 2], d: 'R' }] },
+  { n: 16, ch: 2, title: 'Шлюзы', gen: { obj: 'ringwings', gates: 2 }, need: { gateUses: 2 }, band: [0.45, 0.8], seed: 16001 },
+  { n: 17, ch: 2, title: 'Ферма за углом', gen: { obj: 'ship', mirrors: 2 }, need: { mirrorHits: 2, trusses: 2 }, band: [0.4, 0.8], seed: 17008 },
+  { n: 18, ch: 2, title: 'Поле и зеркало', gen: { obj: 'tug', mirrors: 2, gates: 1 }, need: { mirrorHits: 1, gateUses: 1 }, band: [0.35, 0.75], seed: 18019 },
+  { n: 19, ch: 2, title: 'Солнечная верфь', gen: { obj: 'shipyard', gates: 1 }, need: { trusses: 2, gateUses: 1 }, band: [0.35, 0.75], seed: 19014 },
+  { n: 20, ch: 2, title: 'Звёздный док', gen: { obj: 'dock', mirrors: 1, gates: 1, debris: 1 },
+    need: { mirrorHits: 1, trusses: 2, gateUses: 1 }, band: [0.3, 0.7], seed: 20006 },
+];
+
+function idxOf(w, x, y){ return y * w + x; }
+// Поле для расчёта полёта: занятость, размеры, пороги полей и сколько стыковок уже было (поля открываются по ним).
+function fieldOf(s){ return { occ: s.occ, w: s.w, h: s.h, gate: s.gate, docks: s.hist.length }; }
+function blocks(f, i){ const v = f.occ[i]; return v !== EMPTY && !isMirror(v) && !(v === GATE && f.docks >= f.gate[i]); }
+// Полёт модуля длиной len из очереди side+idx: идёт, пока следующая клетка свободна; отражатель поворачивает
+// (ферму len 2 — нет: для неё отражатель как обломок). stop — передняя клетка, где встал (−1 — некуда встать или
+// застрял на отражателе), cells — клетки модуля (для фермы передняя и задняя; задняя за краем — cells короче len),
+// hit — во что упёрся (−1 — пролетел насквозь), path — пройденные клетки, turns — отражатели по пути, dir — итоговое направление.
+function trace(f, side, idx, len){
+  len = len || 1;
+  let d = DIR[side].slice(), x = side === 'L' ? -1 : side === 'R' ? f.w : idx, y = side === 'T' ? -1 : side === 'B' ? f.h : idx;
+  const path = [], turns = [], seen = new Set();
+  for (;;){
+    const nx = x + d[0], ny = y + d[1];
+    if (nx < 0 || ny < 0 || nx >= f.w || ny >= f.h) return { stop: -1, hit: -1, path, turns, dir: d, cells: [] };
+    const ni = idxOf(f.w, nx, ny), v = f.occ[ni], m = isMirror(v);
+    if ((m && len > 1) || (!m && blocks(f, ni))){
+      const last = path.length ? path[path.length - 1] : -1;
+      if (last < 0 || isMirror(f.occ[last])) return { stop: -1, hit: ni, path, turns, dir: d, cells: [] };
+      const cells = [last]; if (len > 1 && path.length > 1) cells.push(path[path.length - 2]);
+      return { stop: last, hit: ni, path, turns, dir: d, cells };
+    }
+    path.push(ni); x = nx; y = ny;
+    if (m){
+      const key = ni * 8 + (d[0] + 1) * 3 + (d[1] + 1); if (seen.has(key)) return { stop: -1, hit: -1, path, turns, dir: d, cells: [], loop: true };
+      seen.add(key); d = v === MIRROR_A ? [-d[1], -d[0]] : [d[1], d[0]]; turns.push(ni);
+    }
+  }
+}
+// Встал ли модуль своего типа ровно в свой пунктир (ферма — обе клетки одной фермы).
+function fits(bp, grp, kind, cells){
+  if (cells.length !== MOD_LEN[kind] || !cells.every(c => bp[c] === kind)) return false;
+  return cells.length === 1 || (grp[cells[0]] > 0 && grp[cells[0]] === grp[cells[1]]);
+}
+function stationNb(occ, w, h, i){     // сколько соседей клетки — станция (ядро или модуль)
+  const x = i % w, y = (i - x) / w; let n = 0;
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]){
+    const X = x + dx, Y = y + dy;
+    if (X >= 0 && Y >= 0 && X < w && Y < h){ const v = occ[idxOf(w, X, Y)]; if (v === CORE || v > 0) n++; }
+  }
+  return n;
+}
+// Детали вида (deco) по клеткам карты → индексы клеток поля.
+const decoCells = (deco, w, ox, oy, flipW) => (deco || []).map(d => {
+  const x = flipW ? flipW - 1 - d.c[0] : d.c[0];
+  return { t: d.t, i: idxOf(w, x + ox, d.c[1] + oy), d: flipW && (d.d === 'L' || d.d === 'R') ? (d.d === 'L' ? 'R' : 'L') : d.d };
+});
+
+function parseMap(L){
+  const h = L.map.length, w = L.map[0].length, N = w * h, bp = new Array(N).fill(0), grp = new Array(N).fill(0), gate = new Array(N).fill(0);
+  const base = new Array(N).fill(EMPTY), core = [], debris = [], mirrors = [], gates = [];
+  let gk = 0;
+  L.map.forEach((row, y) => [...row].forEach((ch, x) => {
+    const i = idxOf(w, x, y);
+    if (ch === 'C'){ base[i] = CORE; core.push(i); }
+    else if (ch === '#'){ base[i] = DEBRIS; debris.push(i); }
+    else if (ch === '/' || ch === '\\'){ base[i] = ch === '/' ? MIRROR_A : MIRROR_B; mirrors.push(i); }
+    else if (ch === 'g' || ch === 'G'){ base[i] = GATE; gate[i] = L.gates[gk++]; gates.push(i); if (ch === 'G') bp[i] = HULL; }
+    else if (ch >= '1' && ch <= '9'){ bp[i] = TRUSS; grp[i] = +ch; }
+    else if (KIND_CH[ch]) bp[i] = KIND_CH[ch];
+  }));
+  const lanes = L.q.map(str => { const [head, kinds] = str.split(':'); return { side: head[0], idx: +head.slice(1), q: [...kinds].map(ch => KIND_CH[ch]) }; });
+  return { w, h, bp, grp, gate, base, core, debris, mirrors, gates, lanes, name: L.name || '', deco: decoCells(L.deco, w, 0, 0, 0) };
+}
+// Обрезка пустых краёв: поле = рамка вокруг ядра, чертежа и препятствий + запас CFG.CROP_PAD клеток.
+// Правила не меняются: модуль всё равно входит с края и летит до первого занятого; клетки крупнее на экране.
+function cropLayout(lay){
+  const { w, h } = lay; let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let i = 0; i < w * h; i++) if (lay.bp[i] > 0 || lay.base[i] !== EMPTY){ const x = i % w, y = (i - x) / w; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  const P = CFG.CROP_PAD; x0 = Math.max(0, x0 - P); y0 = Math.max(0, y0 - P); x1 = Math.min(w - 1, x1 + P); y1 = Math.min(h - 1, y1 + P);
+  const W2 = x1 - x0 + 1, H2 = y1 - y0 + 1, map = (i) => { const x = i % w, y = (i - x) / w; return idxOf(W2, x - x0, y - y0); };
+  const pick = (arr) => { const out = new Array(W2 * H2); for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) out[idxOf(W2, x, y)] = arr[idxOf(w, x + x0, y + y0)]; return out; };
+  const lanes = lay.lanes.map(l => ({ side: l.side, idx: l.idx - (l.side === 'L' || l.side === 'R' ? y0 : x0), q: l.q.slice() }));
+  for (const l of lanes) if (l.idx < 0 || l.idx >= (l.side === 'L' || l.side === 'R' ? H2 : W2)) throw new Error('очередь ' + l.side + l.idx + ' за обрезкой поля');
+  // деталь вида может смотреть за край поля — храним клетку как координаты (x, y), а не индекс
+  const deco = (lay.deco || []).map(d => { const x = d.i % w, y = (d.i - x) / w; return { t: d.t, x: x - x0, y: y - y0, d: d.d }; });
+  return Object.assign({}, lay, { w: W2, h: H2, bp: pick(lay.bp), grp: pick(lay.grp), gate: pick(lay.gate), base: pick(lay.base),
+    core: lay.core.map(map), debris: lay.debris.map(map), mirrors: lay.mirrors.map(map), gates: lay.gates.map(map), lanes, deco });
+}
+
+// Генератор «от решения» по форме объекта: чертёж задан каталогом (OBJECTS), генератор расставляет препятствия
+// и ищет порядок постройки — каждый шаг это модуль из какой-то очереди, который при текущей станции честно встаёт
+// в свою клетку чертежа рядом со станцией. Порядок постройки и есть решение, поэтому уровень решаем.
+// p: obj — объект каталога, flip — зеркало (по умолчанию по сиду, у симметричных нет), solar — доля панелей среди '*',
+// debris/mirrors/gates — сколько препятствий.
+function genObject(p, seed){
+  const T = OBJECTS[p.obj]; if (!T) return null;
+  const rnd = mulberry32(seed), th = T.map.length, tw = T.map[0].length;
+  const flip = p.flip !== undefined ? !!p.flip : (!T.sym && rnd() < 0.5);
+  const M = 1, W = tw + 2 * M, H = th + 2 * M, N = W * H;
+  const base0 = new Array(N).fill(EMPTY), bp = new Array(N).fill(0), grp = new Array(N).fill(0);
+  const core = [];
+  let base = base0, gate = [], debris = [], mirrors = [], gates = [];
+  for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++){
+    const ch = T.map[y][flip ? tw - 1 - x : x], i = idxOf(W, x + M, y + M);
+    if (ch === 'C'){ base0[i] = CORE; core.push(i); }
+    else if (ch >= '1' && ch <= '9'){ bp[i] = TRUSS; grp[i] = +ch; }
+    else if (ch === '*') bp[i] = p.solar && rnd() < p.solar ? SOLAR : HULL;
+    else if (KIND_CH[ch]) bp[i] = KIND_CH[ch];
+  }
+  // препятствия — в пустых клетках рамки объекта (узкий объект — ещё по клетке слева и справа, сверху и снизу всегда)
+  const ex = tw < CFG.OBS_WIDE ? 1 : 0, zone = [], cx = core[0] % W, cy = (core[0] - cx) / W;
+  for (let y = M - 1; y < M + th + 1; y++) for (let x = M - ex; x < M + tw + ex; x++){ const i = idxOf(W, x, y); if (base0[i] === EMPTY && !bp[i]) zone.push(i); }
+  const nMods = bp.filter(k => k === HULL || k === SOLAR).length + new Set(grp.filter(g => g > 0)).size;   // модулей (ферма — один)
+  const place = (count, minR, put) => {
+    for (let k = 0, guard = 0; k < (count || 0) && guard < 300 && zone.length; guard++){
+      const i = zone[Math.floor(rnd() * zone.length)], x = i % W, y = (i - x) / W;
+      if (base[i] !== EMPTY || Math.max(Math.abs(x - cx), Math.abs(y - cy)) < minR) continue;
+      put(i); k++;
+    }
+  };
+  const cellsLeft = bp.filter(k => k > 0).length;
+  // препятствие может перекрыть клетке все подлёты — тогда переставляем препятствия (до GEN_LAYOUTS раз)
+  for (let layout = 0; layout < CFG.GEN_LAYOUTS; layout++){
+  base = base0.slice(); gate = new Array(N).fill(0); debris = []; mirrors = []; gates = [];
+  place(p.debris, CFG.DEBRIS_MIN_R, (i) => { base[i] = DEBRIS; debris.push(i); });
+  place(p.mirrors, 1, (i) => { base[i] = rnd() < 0.5 ? MIRROR_A : MIRROR_B; mirrors.push(i); });
+  place(p.gates, 1, (i) => { base[i] = GATE; gate[i] = 2 + Math.floor(rnd() * Math.max(1, Math.min(4, nMods - 4))); gates.push(i); });
+  for (let attempt = 0; attempt < CFG.GEN_TRIES; attempt++){
+    const occ = base.slice(), laneOf = {}, order = [];
+    let left = cellsLeft, debrisHits = 0, mirrorHits = 0, gateUses = 0, trusses = 0;
+    while (left > 0){
+      const f = { occ, w: W, h: H, gate, docks: order.length }, cands = []; let wsum = 0;
+      for (const kind of [HULL, SOLAR, TRUSS]){
+        const len = MOD_LEN[kind];
+        for (const side of SIDES) for (let idx = 0, n = side === 'L' || side === 'R' ? H : W; idx < n; idx++){
+          const key = side + idx, ln = laneOf[key], depth = side === 'L' || side === 'R' ? CFG.DEPTH_LR : CFG.DEPTH_TB;
+          const used = ln ? ln.q.reduce((a, k) => a + MOD_LEN[k], 0) : 0;
+          if (used + len > depth) continue;
+          const t = trace(f, side, idx, len);
+          if (t.stop < 0 || t.hit < 0 || !fits(bp, grp, kind, t.cells)) continue;
+          if (!Math.max(...t.cells.map(c => stationNb(occ, W, H, c)))) continue;      // касается станции, а не висит у обломка
+          const viaGate = t.path.some(c => base[c] === GATE) || occ[t.hit] === GATE;
+          let w = 1;
+          if (ln) w *= CFG.GEN_QUEUE_W;
+          if (occ[t.hit] === DEBRIS) w *= CFG.GEN_DEBRIS_W;
+          if (t.turns.length) w *= CFG.GEN_MIRROR_W;
+          if (viaGate) w *= CFG.GEN_GATE_W;
+          cands.push({ side, idx, key, kind, t, w, viaGate }); wsum += w;
+        }
+      }
+      if (!cands.length) break;
+      let r = rnd() * wsum, pick = cands[cands.length - 1];
+      for (const c of cands){ r -= c.w; if (r <= 0){ pick = c; break; } }
+      for (const c of pick.t.cells) occ[c] = pick.kind;
+      left -= pick.t.cells.length;
+      if (pick.kind === TRUSS) trusses++;
+      if (occ[pick.t.hit] === DEBRIS) debrisHits++;
+      if (pick.t.turns.length) mirrorHits++;
+      if (pick.viaGate) gateUses++;
+      if (!laneOf[pick.key]) laneOf[pick.key] = { side: pick.side, idx: pick.idx, q: [] };
+      laneOf[pick.key].q.push(pick.kind); order.push(pick.key);
+    }
+    if (left > 0) continue;
+    const lanes = Object.values(laneOf).sort((a, b) => SIDES.indexOf(a.side) - SIDES.indexOf(b.side) || a.idx - b.idx);
+    return { w: W, h: H, bp, grp, gate, base, core, debris, mirrors, gates, lanes, order, debrisHits, mirrorHits, gateUses, trusses,
+      obj: p.obj, flip, name: T.name, deco: decoCells(T.deco, W, M, M, flip ? tw : 0), attempt, layout };
+  }
+  }
+  return null;
+}
+
+const layCache = new Map();
+function layoutOf(li){
+  if (!layCache.has(li)){ const L = LEVELS[li]; layCache.set(li, cropLayout(L.map ? parseMap(L) : genObject(L.gen, L.seed))); }
+  return layCache.get(li);
+}
+function stateFromLayout(lay, li){
+  const total = lay.bp.filter(k => k > 0).length;
+  return { li, w: lay.w, h: lay.h, bp: lay.bp, grp: lay.grp, gate: lay.gate, base: lay.base, lanes: lay.lanes, core: lay.core,
+    debris: lay.debris, mirrors: lay.mirrors, gates: lay.gates, name: lay.name || '', deco: lay.deco || [],
+    occ: lay.base.slice(), ptr: lay.lanes.map(() => 0), bat: CFG.BATTERIES, placed: 0, total,
+    moves: 0, misses: 0, undos: 0, hist: [], last: null, dead: false };
+}
+function createState(li){ return stateFromLayout(layoutOf(li), li); }
+function cloneState(s){ return { ...s, occ: s.occ.slice(), ptr: s.ptr.slice(), hist: s.hist.slice() }; }
+
+// Куда встанет передний модуль очереди li — честный расчёт того же ядра (им же рисуется превью).
+function landing(s, li){
+  const ln = s.lanes[li]; if (!ln || s.ptr[li] >= ln.q.length) return null;
+  const kind = ln.q[s.ptr[li]], t = trace(fieldOf(s), ln.side, ln.idx, MOD_LEN[kind]);
+  const res = t.hit < 0 ? 'off' : t.stop < 0 ? 'blocked' : fits(s.bp, s.grp, kind, t.cells) ? 'dock' : 'crooked';
+  return { li, kind, res, cell: t.stop, cells: t.cells, hit: t.hit, path: t.path, turns: t.turns, dir: t.dir };
+}
+function legalMoves(s){ const out = []; if (isWin(s)) return out; s.ptr.forEach((p, li) => { if (p < s.lanes[li].q.length) out.push(li); }); return out; }
+function dockMoves(s){ return legalMoves(s).filter(li => landing(s, li).res === 'dock'); }
+
+// Перебор порядка стыковок (только удачные стыковки; промахи состояние не меняют). Мемо по занятости + очередям.
+function solveInfo(s){
+  const occ = s.occ.slice(), ptr = s.ptr.slice(), lanes = s.lanes, bp = s.bp, seen = new Set(), path = [];
+  const f = { occ, w: s.w, h: s.h, gate: s.gate, docks: s.hist.length };
+  let left = s.total - s.placed, nodes = 0, capped = false;
+  function rec(){
+    if (left === 0) return true;
+    const key = ptr.join(',') + '|' + occ.join('');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    if (++nodes > CFG.SOLVE_CAP){ capped = true; return false; }
+    for (let li = 0; li < lanes.length; li++){
+      const ln = lanes[li]; if (ptr[li] >= ln.q.length) continue;
+      const kind = ln.q[ptr[li]], t = trace(f, ln.side, ln.idx, MOD_LEN[kind]);
+      if (t.hit < 0 || t.stop < 0 || !fits(bp, s.grp, kind, t.cells)) continue;
+      for (const c of t.cells) occ[c] = kind; ptr[li]++; left -= t.cells.length; f.docks++; path.push(li);
+      if (rec()) return true;
+      for (const c of t.cells) occ[c] = s.base[c]; ptr[li]--; left += t.cells.length; f.docks--; path.pop();
+      if (capped) return false;
+    }
+    return false;
+  }
+  const ok = rec();
+  return { path: ok ? path.slice() : null, exact: ok || !capped, nodes };
+}
+function solve(s){ return solveInfo(s).path; }
+function isDead(s){ if (isWin(s)) return false; const r = solveInfo(s); return !r.path && r.exact; }
+
+function applyMove(s, li){
+  const L = landing(s, li); if (!L || isWin(s) || isLose(s)) return s;
+  const n = cloneState(s); n.moves++; n.last = L;
+  if (L.res === 'dock'){ for (const c of L.cells) n.occ[c] = L.kind; n.ptr[li]++; n.placed += L.cells.length; n.hist.push({ li, cell: L.cell, cells: L.cells }); n.dead = isDead(n); }
+  else { n.bat -= CFG.MISS_COST; n.misses++; }
+  return n;
+}
+function canUndo(s){ return s.hist.length > 0 && !isWin(s) && s.bat > CFG.UNDO_COST; }
+function undoMove(s){
+  if (!canUndo(s)) return s;
+  const n = cloneState(s), h = n.hist.pop();
+  for (const c of h.cells) n.occ[c] = s.base[c]; n.ptr[h.li]--; n.placed -= h.cells.length; n.bat -= CFG.UNDO_COST; n.undos++;
+  n.last = { li: h.li, res: 'undo', cell: h.cell, cells: h.cells, kind: s.occ[h.cell] }; n.dead = isDead(n);
+  return n;
+}
+function isWin(s){ return s.placed === s.total; }
+// Проигрыш: батарейки кончились, или тупик, а на отмену батареек уже не хватает.
+function isLose(s){ return !isWin(s) && (s.bat <= 0 || (s.dead && s.bat <= CFG.UNDO_COST)); }
+function starsFor(s){ return Math.max(1, Math.min(3, s.bat)); }
+
+// Боты (PROTO-BASE §6). Случайный — тапает любую очередь. Новичок — тапает наугад среди тех, что встанут
+// в пунктир (траекторию он видит), в тупике отменяет и больше этот ход в этом месте не делает.
+// Жадный — выбирает стыковку, после которой остаётся больше удачных вариантов.
+function randomRun(li, seed){
+  const rnd = mulberry32(seed); let s = createState(li);
+  while (!isWin(s) && !isLose(s)){ const m = legalMoves(s); s = applyMove(s, m[Math.floor(rnd() * m.length)]); }
+  return { win: isWin(s), moves: s.moves, bat: s.bat };
+}
+function noviceOn(s, seed){
+  const rnd = mulberry32(seed), banned = new Set(); let dead = 0;
+  const key = (st) => st.ptr.join(',') + '|' + st.occ.join('');
+  while (!isWin(s) && !isLose(s)){
+    const k = key(s), m = dockMoves(s).filter(li => !banned.has(k + '>' + li));
+    if (!m.length){ if (canUndo(s)) { s = undoMove(s); continue; } break; }
+    const li = m[Math.floor(rnd() * m.length)], n = applyMove(s, li);
+    if (n.dead){ dead++; banned.add(k + '>' + li); s = canUndo(n) ? undoMove(n) : n; }
+    else s = n;
+  }
+  return { win: isWin(s), clean: isWin(s) && dead === 0, deadEnds: dead, undos: s.undos, bat: s.bat, moves: s.moves };
+}
+function noviceRun(li, seed){ return noviceOn(createState(li), seed); }
+function greedyRun(li){
+  let s = createState(li);
+  while (!isWin(s) && !isLose(s)){
+    const m = dockMoves(s); if (!m.length) break;
+    let best = m[0], bestN = -1;
+    for (const li2 of m){ const n = applyMove(s, li2), v = n.dead ? -1 : dockMoves(n).length; if (v > bestN){ bestN = v; best = li2; } }
+    s = applyMove(s, best);
+  }
+  return { win: isWin(s), moves: s.moves, bat: s.bat };
+}
+// Метрики уровня для подбора сида и аудита: доля чистых побед новичка, побед с отменами, побед случайного.
+function levelMetrics(s0, runs, seed){
+  let clean = 0, win = 0, rnd = 0, opts = 0, dec = 0;
+  for (let k = 0; k < runs; k++){
+    const r = noviceOn(cloneState(s0), seed * 7919 + k); clean += r.clean ? 1 : 0; win += r.win ? 1 : 0;
+  }
+  for (let k = 0; k < runs; k++){
+    const r2 = mulberry32(seed * 31 + k); let s = cloneState(s0);
+    while (!isWin(s) && !isLose(s)){ const m = legalMoves(s); s = applyMove(s, m[Math.floor(r2() * m.length)]); }
+    rnd += isWin(s) ? 1 : 0;
+  }
+  // очевидность: сколько очередей в среднем «зелёные» по ходу решения
+  let s = cloneState(s0); const sol = solve(s) || [];
+  for (const li of sol){ opts += dockMoves(s).length / legalMoves(s).length; dec++; s = applyMove(s, li); }
+  return { clean: clean / runs, win: win / runs, random: rnd / runs, green: dec ? opts / dec : 0 };
+}
+// Уровень после 20-го (бесконечный режим и проверка «1000-го уровня»): объект по кругу каталога, препятствия по номеру.
+function paramsFor(n){
+  const ids = Object.keys(OBJECTS), obj = ids[(n * 7) % ids.length], ch2 = /[1-9]/.test(OBJECTS[obj].map.join(''));
+  return { obj, solar: 0.4, debris: n % 4 === 1 ? 1 : 0, mirrors: n % 3 === 0 ? 2 : n % 3 === 1 ? 1 : 0, gates: ch2 || n % 5 === 0 ? 1 : 0 };
+}
+/* КОНЕЦ ЯДРА */
+// ---------------------------------------------------------------------------
+// Оболочка: экраны, ввод, 3D-кадр, звук, сейв, дебаг-хук. Время абсолютное (§4): все анимации — дедлайны по clock(),
+// clock() = реальное время × скорость + прогон drive(). Мировые координаты: клетка = 1, поле в XZ с центром в нуле.
+// ---------------------------------------------------------------------------
+const NAME = 'stykovka-3d';
+const VERSION = '1.1';
+const T0 = performance.now();
+function log(kind, name, info){            // журнал [game] — одна строка на событие (§11)
+  console.log('[game] ' + JSON.stringify({ t: +((performance.now() - T0) / 1000).toFixed(3), kind, name, info: info === undefined ? '' : String(info) }));
+}
+const SAVE_KEY = NAME + '.v1';
+function loadSave(){ try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; } catch (e) { return {}; } }
+function save(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(G.save)); } catch (e) {} }
+const RM = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
+
+const G = {
+  s: null,                       // состояние ядра
+  screen: 'menu',                // menu | game | win | lose | help | hangar
+  save: Object.assign({ level: 0, open: 0, muted: false, best: {}, unlockAll: false, hangar: [] }, loadSave()),
+  flights: [],                   // летящие модули: { li, kind, res, cells, dir, t0, t1, fp, back0, back1, twist }
+  fx: [],                        // вспышки, кольца, слова, «−1»: { type, x, y, z, t0, t1, … } (мир)
+  parts: [],                     // частицы (мир): движение аналитическое от t0, без накопления dt
+  cellFx: {},                    // клетка → { t0, yaw, twist, seam:{x,z,yaw} } — стыковка: удар, магнит, защёлки, крылья, свет
+  cellYaw: {},                   // клетка → курс модуля при стыковке (ось капсулы)
+  pending: new Set(),            // клетки, куда модуль уже встал в ядре, но ещё летит на экране
+  laneBusy: {}, laneSlide: {},   // очередь занята анимацией до… / подтянулась в…
+  press: null,                   // { id, li, since } — палец на очереди: превью траектории
+  ending: null,                  // { kind: 'win'|'lose', at, why }
+  winAt: 0, loseAt: 0, liftAt: 0, decoAt: [],
+  introAt: 0,
+  shakeUntil: 0, shakeDir: [0, 0], shakeAmp: 1,
+  streak: 0, told: {}, sched: [], mirrorHit: {}, lastInput: 0, hintKey: '',
+  timeScale: 1, rt0: performance.now(), vt0: 0, skew: 0,
+  paused: false, frame: 0, thumbs: {}, frameMs: [], dprCap: 2,
+};
+function clock(){ return G.vt0 + (performance.now() - G.rt0) * G.timeScale + G.skew; }
+function setSpeed(x){ const now = clock(); G.vt0 = now - G.skew; G.rt0 = performance.now(); G.timeScale = x || 1; }
+
+// --- звук: WebAudio-синтез без файлов, ленивый старт по первому жесту (§8). Отдельные события: лязг защёлок, раскрытие панелей, свет ---
+const PENTA = [523, 587, 659, 784, 880, 1047, 1175, 1319, 1568, 1760, 2093];
+const Sfx = {
+  ac: null, master: null, noise: null, amb: null,
+  init(){
+    if (this.ac) { if (this.ac.state === 'suspended') this.ac.resume(); return; }
+    try {
+      this.ac = new (window.AudioContext || window.webkitAudioContext)();
+      const comp = this.ac.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4; comp.connect(this.ac.destination);
+      this.master = this.ac.createGain(); this.master.gain.value = G.save.muted ? 0 : 0.6; this.master.connect(comp);
+      const len = this.ac.sampleRate * 0.8, buf = this.ac.createBuffer(1, len, this.ac.sampleRate), d = buf.getChannelData(0), r = mulberry32(99);
+      for (let i = 0; i < len; i++) d[i] = r() * 2 - 1;
+      this.noise = buf; this.ambient();
+    } catch (e) { this.ac = null; }
+  },
+  setMuted(m){ if (this.master) this.master.gain.setTargetAtTime(m ? 0 : 0.6, this.ac.currentTime, 0.05); },
+  ok(){ return this.ac && !G.save.muted; },
+  // Фон: тёплый «студийный» гул — квинта A2–E3 и тихая октава, медленный фильтр. Не музыка, а воздух сцены.
+  ambient(){
+    if (!this.ac || this.amb) return;
+    const g = this.ac.createGain(), lp = this.ac.createBiquadFilter(), lfo = this.ac.createOscillator(), lg = this.ac.createGain();
+    g.gain.value = CFG.AMBIENT_VOL; lp.type = 'lowpass'; lp.frequency.value = 520; lp.Q.value = 2;
+    lfo.frequency.value = 0.05; lg.gain.value = 220; lfo.connect(lg).connect(lp.frequency); lfo.start();
+    for (const [f, t] of [[110, 'triangle'], [164.8, 'sine'], [220.6, 'sine'], [329.2, 'sine']]){ const o = this.ac.createOscillator(); o.type = t; o.frequency.value = f; o.connect(lp); o.start(); }
+    lp.connect(g).connect(this.master); this.amb = g;
+  },
+  tone(freq, ms, type, vol, delay, freqTo){
+    if (!this.ok()) return;
+    const t = this.ac.currentTime + (delay || 0) / 1000, o = this.ac.createOscillator(), g = this.ac.createGain();
+    o.type = type || 'sine'; o.frequency.setValueAtTime(freq, t);
+    if (freqTo) o.frequency.exponentialRampToValueAtTime(freqTo, t + ms / 1000);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol || 0.25, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + ms / 1000);
+    o.connect(g).connect(this.master); o.start(t); o.stop(t + ms / 1000 + 0.03);
+  },
+  hiss(ms, f0, f1, vol, delay, q, type){
+    if (!this.ok()) return;
+    const t = this.ac.currentTime + (delay || 0) / 1000, src = this.ac.createBufferSource(), bp = this.ac.createBiquadFilter(), g = this.ac.createGain();
+    src.buffer = this.noise; bp.type = type || 'bandpass'; bp.Q.value = q || 1.2;
+    bp.frequency.setValueAtTime(f0, t); bp.frequency.exponentialRampToValueAtTime(f1, t + ms / 1000);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol || 0.3, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + ms / 1000);
+    src.connect(bp).connect(g).connect(this.master); src.start(t); src.stop(t + ms / 1000 + 0.05);
+  },
+  metal(f, vol, delay){ [1, 2.76, 5.4, 8.9].forEach((m, k) => this.tone(f * m, 240 / (1 + k * 0.6), k ? 'sine' : 'triangle', vol / (1 + k * 0.9), delay)); },
+  press(){ this.tone(300, 80, 'sine', 0.07, 0, 460); },
+  aim(){ this.tone(1800, 14, 'square', 0.02); },
+  launch(){ this.hiss(300, 380, 2600, 0.3); this.tone(110, 150, 'sine', 0.22, 0, 52); this.hiss(80, 6500, 3500, 0.07, 0, 2, 'highpass'); log('sound', 'launch'); },
+  approach(delay){ this.hiss(150, 2600, 700, 0.12, delay, 1.5); },                              // торможение у шва
+  dock(streak){                                                                                  // магнитный «тунк» в момент касания
+    this.tone(82, 140, 'sine', 0.32); this.metal(360, 0.12); this.hiss(35, 3800, 2400, 0.22, 0, 4);
+    log('sound', 'dock');
+  },
+  latch(delay){ for (const [k, f] of [[0, 2600], [1, 3100]]){ this.hiss(22, 6000, 4500, 0.2, delay + k * 55, 6); this.tone(f, 18, 'square', 0.05, delay + k * 55); } this.metal(620, 0.06, delay + 60); log('sound', 'latch'); },
+  unfold(delay){ this.tone(240, 300, 'sawtooth', 0.035, delay, 520); for (let k = 0; k < 4; k++) this.tone(1900 + k * 120, 10, 'square', 0.025, delay + 40 + k * 60); log('sound', 'unfold'); },
+  lights(streak, delay){ const f = PENTA[Math.min(PENTA.length - 1, streak)]; this.tone(f, 420, 'sine', 0.12, delay); this.tone(f * 1.5, 380, 'sine', 0.05, delay + 50); this.tone(f * 2, 260, 'triangle', 0.03, delay + 90); log('sound', 'lights'); },
+  mirror(k){ this.tone(1760 + k * 220, 160, 'sine', 0.09); this.tone(2640 + k * 330, 90, 'sine', 0.04, 10); },
+  gate(open){ if (open){ this.hiss(380, 3000, 300, 0.2, 0, 2); this.tone(880, 320, 'sawtooth', 0.04, 0, 220); } else { this.tone(220, 200, 'sawtooth', 0.05, 0, 660); this.hiss(200, 300, 2500, 0.1, 0, 2); } },
+  word(){ [0, 1, 2].forEach(k => this.tone(1568 + k * 400, 90, 'triangle', 0.06, 160 + k * 55)); },
+  crooked(){ this.metal(230, 0.12); for (let k = 0; k < 3; k++) this.tone(150, 70, 'square', 0.06, 60 + k * 85); log('sound', 'crooked'); },
+  off(){ this.hiss(600, 2000, 250, 0.2); this.tone(900, 520, 'sine', 0.09, 40, 160); log('sound', 'off'); },
+  back(){ this.hiss(260, 1600, 500, 0.12); },
+  undo(){ this.hiss(30, 4000, 3000, 0.2, 0, 5); this.tone(2400, 14, 'square', 0.04, 20); this.tone(330, 180, 'triangle', 0.13, 40, 640); log('sound', 'undo'); },
+  dead(){ this.tone(220, 200, 'triangle', 0.18); this.tone(165, 360, 'triangle', 0.18, 190); log('sound', 'dead'); },
+  win(){ [523, 659, 784, 1047].forEach((f, i) => { this.tone(f, 380, 'triangle', 0.11, i * 70); this.tone(f * 2, 260, 'sine', 0.03, i * 70); }); log('sound', 'win'); },
+  deco(k){ const f = PENTA[Math.min(PENTA.length - 1, 4 + k)]; this.tone(f, 160, 'triangle', 0.08); this.metal(f / 2, 0.04); },
+  liftoff(){ this.hiss(1300, 180, 900, 0.22, 0, 0.8, 'lowpass'); this.tone(55, 1200, 'sawtooth', 0.06, 0, 110); [1047, 1319, 1568, 2093].forEach((f, i) => this.tone(f, 300, 'sine', 0.05, 500 + i * 90)); log('sound', 'liftoff'); },
+  star(k){ this.tone([784, 988, 1319][k] || 1319, 260, 'triangle', 0.15); this.metal([784, 988, 1319][k] || 1319, 0.04); },
+  lose(){ [392, 330, 262, 196].forEach((f, i) => this.tone(f, 260, 'triangle', 0.14, i * 150)); this.tone(60, 900, 'sawtooth', 0.05, 0, 40); log('sound', 'lose'); },
+  ui(){ this.tone(700, 40, 'triangle', 0.08); this.tone(1050, 30, 'sine', 0.04, 25); },
+};
+function buzz(p){ try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
+
+// --- экраны: DOM-оверлеи, любой открывается кодом или хешем (§6, §11) ---
+const $ = (id) => document.getElementById(id);
+const UI = 'assets/ui/';
+let starTimers = [];
+const isOpen = (li) => G.save.unlockAll || li <= G.save.open;
+const objName = (li) => { try { return layoutOf(li).name; } catch (e) { return ''; } };
+function goto(screen, payload){
+  if (screen !== 'win' && screen !== 'lose' && screen !== 'game') abortEnding();
+  G.screen = screen; log('screen', screen);
+  starTimers.forEach(clearTimeout); starTimers = [];
+  const ov = $('overlay'), card = $('card');
+  if (screen !== 'game') $('goal-big').classList.remove('show');
+  if (screen === 'game'){ ov.classList.remove('show'); return; }
+  ov.classList.add('show'); ov.classList.toggle('win', screen === 'win');
+  card.className = 'card ' + screen;
+  if (screen === 'menu'){
+    const cell = (i) => { const b = G.save.best[i] || 0;
+      return '<button data-act="lvl" data-li="' + i + '"' + (!isOpen(i) ? ' disabled' : '') + (i === G.save.level ? ' class="cur"' : '') + '>' + (i + 1) +
+        '<span class="mini">' + [0, 1, 2].map(k => '<i class="' + (k < b ? 'on' : '') + '"></i>').join('') + '</span></button>'; };
+    const ch1 = LEVELS.map((L, i) => i).filter(i => (LEVELS[i].ch || 1) === 1), ch2 = LEVELS.map((L, i) => i).filter(i => LEVELS[i].ch === 2);
+    card.innerHTML = '<img class="emblem" src="' + UI + 'ic-rocket.png" alt=""><h1>СТЫКОВКА<span>3D</span></h1>' +
+      '<p>Собери вещь по чертежу. Модуль летит прямо и встаёт у первого, чего коснётся.</p>' +
+      '<div class="levels"><div class="ch">Глава 1 · Голубая планета</div>' + ch1.map(cell).join('') + '<div class="ch">Глава 2 · Красная планета</div>' + ch2.map(cell).join('') + '</div>' +
+      '<div class="row"><button class="b" data-act="play"><img src="' + UI + 'ic-play.png" alt=""><span>Играть</span></button></div>' +
+      '<div class="row"><button class="b navy" data-act="hangar"><img src="' + UI + 'ic-hangar.png" alt=""><span>Ангар ' + G.save.hangar.length + '/' + LEVELS.length + '</span></button>' +
+      '<button class="b navy" data-act="help"><span>Как играть</span></button></div>' +
+      '<div class="row cheats">' + (G.save.unlockAll ? '<button class="cheat" data-act="relock">Чит включён · закрыть уровни</button>' : '<button class="cheat" data-act="unlock">Чит: открыть все уровни</button>') +
+      ' <button class="cheat" data-act="wipe">Сбросить прогресс</button></div>';
+  }
+  if (screen === 'help') card.innerHTML = '<h2>Как играть</h2><ul class="help-list">' +
+    '<li>Тапни модуль у края — он полетит прямо и встанет перед первым, чего коснётся.</li>' +
+    '<li>Заполни чертёж. <b>Капсула</b> — в голубой пунктир, <b>панель с крыльями</b> — в жёлтый, <b>ферма</b> — в длинный оранжевый.</li>' +
+    '<li>Держи палец на модуле — увидишь, куда он встанет. Отпусти — полетит, уведи в сторону — отмена.</li>' +
+    '<li>Значок на углу боковой площадки — какой модуль в этой очереди следующий.</li>' +
+    '<li>Мимо или не туда — минус батарейка, модуль вернётся. Отмена тоже стоит батарейку.</li>' +
+    '<li>Порядок важен: модуль может занять чужое место и закрыть дорогу.</li>' +
+    '<li>Глава 2: отражатель поворачивает модуль, ферма длиной в две клетки, силовое поле пропускает после нескольких стыковок.</li>' +
+    '<li>Собранная вещь улетает в ангар.</li></ul>' +
+    '<div class="row"><button class="b" data-act="menu"><span>Понятно</span></button></div>';
+  if (screen === 'hangar'){
+    // карточка показывается сразу; снимки вещей досниваются по одному за кадр (первый заход не стоит 20 чтений GPU подряд)
+    const slots = LEVELS.map((L, i) => { const got = G.save.hangar.includes(i), src = G.thumbs[i + (got ? '' : 'h')] || '';
+      return '<div class="' + (got ? '' : 'no') + '" data-li="' + i + '"><img src="' + src + '" alt=""' + (src ? '' : ' style="visibility:hidden"') + '><span>' + (got ? objName(i) : (i + 1) + '. ?') + '</span></div>'; }).join('');
+    G.thumbQueue = LEVELS.map((L, i) => i).filter(i => !G.thumbs[i + (G.save.hangar.includes(i) ? '' : 'h')]);
+    card.innerHTML = '<h2>Ангар</h2><span class="count">Собрано ' + G.save.hangar.length + ' из ' + LEVELS.length + '</span>' +
+      '<div class="hgrid">' + slots + '</div><div class="row"><button class="b" data-act="menu"><span>Назад</span></button></div>';
+  }
+  if (screen === 'win'){
+    const s = G.s, last = s && s.li >= LEVELS.length - 1, n = s ? starsFor(s) : 3, src = s ? thumb(s.li, false) : '';   // вещь та же — снимок из кэша
+    card.innerHTML = (src ? '<img class="shot" src="' + src + '" alt="">' : '') + '<h2>' + (s ? s.name : 'Объект') + ' собран' + (s && /а$/.test(s.name) ? 'а' : '') + '!</h2>' +
+      '<div class="stars">' + [0, 1, 2].map(k => '<i class="' + (k < n ? 'on pop' : '') + '" style="animation-delay:' + (0.2 + k * 0.25) + 's"></i>').join('') + '</div>' +
+      '<span class="count">В ангаре ' + G.save.hangar.length + ' из ' + LEVELS.length + '</span><p>' + (payload || '') + '</p>' +
+      '<div class="row">' + (last ? '<button class="b" data-act="hangar"><img src="' + UI + 'ic-hangar.png" alt=""><span>В ангар</span></button>' : '<button class="b" data-act="next"><span>Дальше</span><img src="' + UI + 'ic-next.png" alt=""></button>') +
+      '<button class="b navy" data-act="retry"><img src="' + UI + 'ic-restart.png" alt=""><span>Ещё раз</span></button></div>';
+    for (let k = 0; k < n; k++) starTimers.push(setTimeout(() => { Sfx.star(k); buzz(12); }, 200 + k * 250));
+  }
+  if (screen === 'lose') card.innerHTML = '<h2>' + (payload === 'dead' ? 'Не достроить' : 'Батарейки сели') + '</h2>' +
+    '<div class="stars"><i></i><i></i><i></i></div>' +
+    '<p>' + (payload === 'dead' ? 'Модуль занял чужое место, а на отмену заряда уже нет.' : 'Слишком много модулей ушло мимо чертежа.') + '</p>' +
+    '<div class="row"><button class="b" data-act="retry"><img src="' + UI + 'ic-restart.png" alt=""><span>Ещё раз</span></button><button class="b navy" data-act="menu"><img src="' + UI + 'ic-menu.png" alt=""><span>Меню</span></button></div>';
+}
+$('card').addEventListener('click', (e) => {
+  const b = e.target && e.target.closest ? e.target.closest('button') : null, act = b && b.dataset.act; if (!act) return;
+  Sfx.init(); Sfx.ui(); log('input', 'button', act);
+  if (act === 'play') startLevel(G.save.level);
+  else if (act === 'retry') startLevel(G.s ? G.s.li : G.save.level);
+  else if (act === 'next') startLevel(Math.min((G.s ? G.s.li : 0) + 1, LEVELS.length - 1));
+  else if (act === 'lvl') startLevel(+b.dataset.li);
+  else if (act === 'help') goto('help');
+  else if (act === 'hangar') goto('hangar');
+  else if (act === 'unlock' || act === 'relock'){ setUnlockAll(act === 'unlock'); goto('menu'); }
+  else if (act === 'wipe'){ wipeProgress(); goto('menu'); }
+  else goto('menu');
+});
+// Чит «Открыть все уровни» (PROTO-BASE §6) и сброс прогресса
+function setUnlockAll(on){ G.save.unlockAll = !!on; save(); log('event', 'cheat.unlockAll', String(!!on)); }
+function wipeProgress(){ Object.assign(G.save, { level: 0, open: 0, best: {}, unlockAll: false, hangar: [] }); save(); log('event', 'progress.reset'); }
+function fromHash(){
+  const h = location.hash.slice(1), m = /^level=(\d+)$/.exec(h);
+  if (h === 'unlock'){ setUnlockAll(true); return goto('menu'); }
+  if (m) return startLevel(Math.max(0, Math.min(LEVELS.length, +m[1]) - 1));
+  if (h === 'game') return startLevel(G.save.level);
+  if ((h === 'win' || h === 'lose') && !G.s) startLevel(G.save.level);
+  if (h && h !== G.screen) goto(h);
+}
+window.addEventListener('hashchange', fromHash);
+
+let toastUntil = 0;
+function toast(msg, bad){ const t = $('toast'); t.textContent = msg; t.classList.toggle('bad', !!bad); t.classList.remove('hide'); toastUntil = clock() + CFG.TOAST_MS; }
+// Объяснение промаха тостом только первые CFG.TOAST_REPEAT раз — дальше хватает слова на месте (без попапа на каждый ход)
+function explain(kind, msg){ G.told[kind] = (G.told[kind] || 0) + 1; if (G.told[kind] <= CFG.TOAST_REPEAT) toast(msg, true); }
+
+function startLevel(li){
+  abortEnding();
+  li = Math.max(0, Math.min(LEVELS.length - 1, li));
+  G.s = createState(li); G.flights = []; G.fx = []; G.parts = []; G.cellFx = {}; G.cellYaw = {}; G.sched = []; G.mirrorHit = {}; G.pending.clear(); G.laneBusy = {}; G.laneSlide = {};
+  G.docksShown = 0; G.dockAt = 0; G.waves = []; G.runId = (G.runId || 0) + 1;
+  G.press = null; G.ending = null; G.winAt = 0; G.loseAt = 0; G.liftAt = 0; G.decoAt = []; G.streak = 0; G.lastInput = clock(); G.hintKey = '';
+  G.introAt = RM ? clock() - CFG.INTRO_MS : clock();
+  G.save.level = li; save();
+  const L = LEVELS[li];
+  $('frame').dataset.ch = String(L.ch || 1);
+  if (R3.ready){ R3.setLevel(G.s.w, G.s.h, L.ch || 1); R3.warm(); }                         // прогрев до первого снимка
+  const goal = R3.ready ? thumb(li, false) : '';                                              // цель уровня — снимок готовой вещи
+  $('hud-goal').innerHTML = goal ? '<img src="' + goal + '" alt="">' : '';
+  $('banner').innerHTML = L.hint ? '<small>' + L.hint + '</small>' : '';
+  $('toast').classList.add('hide');
+  log('event', 'level.start', 'level=' + (li + 1) + ' obj=' + G.s.name + ' cells=' + G.s.total + ' lanes=' + G.s.lanes.length);
+  log('fx.start', 'intro');
+  goto('game'); hud(true);
+  if (R3.ready){ fitCamera(); R3.warm(); }
+  showGoal();
+}
+// Цель уровня крупно над полем: 1,4 с на виду, потом улетает в шапку. Не попап на каждый ход — только старт уровня и тап по цели.
+function showGoal(){
+  const el = $('goal-big'), img = $('hud-goal').querySelector('img'); if (!img || RM || G.screen !== 'game') return;
+  const f = $('frame').getBoundingClientRect(), h = $('hud-goal').getBoundingClientRect();
+  const top = Math.max($('banner').getBoundingClientRect().bottom, document.querySelector('header').getBoundingClientRect().bottom) - f.top + 10;
+  el.src = img.src; el.style.top = top + 'px';
+  el.style.setProperty('--gx', (h.left + h.width / 2 - f.left - f.width / 2).toFixed(0) + 'px'); el.style.setProperty('--gy', (h.top + h.height / 2 - f.top - top - 68).toFixed(0) + 'px');
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); log('fx.start', 'goal');
+}
+$('goal-big').addEventListener('animationend', () => { $('goal-big').classList.remove('show'); log('fx.end', 'goal'); });
+$('hud-goal').addEventListener('click', () => { Sfx.init(); Sfx.ui(); log('input', 'button', 'goal'); showGoal(); });
+let prevBat = CFG.BATTERIES, prevPlaced = 0;
+function hud(reset){
+  const s = G.s;
+
+  const shown = s ? s.placed - [...G.pending].length : 0;                                       // прогресс — по долетевшим модулям
+  $('hud-obj').innerHTML = s ? '<i>' + (s.li + 1) + '</i>' + s.name : '';
+  $('hud-obj').classList.toggle('long', !!s && s.name.length > 16);
+  $('prog-n').textContent = s ? shown + '/' + s.total : '';
+  $('prog-fill').style.width = s ? (100 * shown / s.total).toFixed(1) + '%' : '0%';
+  if (s && !reset && shown > prevPlaced){ const el = $('prog'); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+  prevPlaced = shown;
+  // батарейка гаснет, когда промах случился на экране (модуль долетел), а не в момент тапа
+  const owed = G.flights.filter(f => !f.arrived && f.res !== 'dock' && f.res !== 'undo').length * CFG.MISS_COST;
+  const bats = $('bats').children, bat = s ? s.bat + owed : CFG.BATTERIES;
+  for (let k = 0; k < bats.length; k++){
+    bats[k].classList.toggle('off', k >= bat);
+    if (!reset && k >= bat && k < prevBat){ bats[k].classList.remove('blink'); void bats[k].offsetWidth; bats[k].classList.add('blink'); }
+  }
+  prevBat = bat;
+  $('btn-undo').disabled = !(s && canUndo(s) && !G.ending && !flightsBusy(clock()));
+  $('btn-undo').classList.toggle('pulse', !!(s && s.dead && canUndo(s) && !G.ending));
+  $('mute-ic').src = UI + (G.save.muted ? 'ic-mute.png' : 'ic-sound.png');
+}
+
+// --- геометрия в мировых единицах: клетка = 1, центр поля в нуле, Z вниз по экрану ---
+const cx = (i) => (i % G.s.w) - (G.s.w - 1) / 2;
+const cz = (i) => Math.floor(i / G.s.w) - (G.s.h - 1) / 2;
+const yawOf = (d) => -Math.atan2(d[1], d[0]);                      // курс (dx, dy) клетки → поворот модели вокруг Y (+X — нос)
+const isLR = (side) => side === 'L' || side === 'R';
+// Раскладка очереди с модуля from: центр каждого (off, клеток от кромки поля), масштаб, дальний край
+const qCache = new WeakMap();                              // раскладка очереди по (очередь, с какого модуля) — без пересчёта в кадре
+function qOffsets(lane, from){
+  let m = qCache.get(lane); if (!m) qCache.set(lane, m = new Map());
+  if (m.has(from)) return m.get(from);
+  const out = qOffsetsRaw(lane, from); m.set(from, out); return out;
+}
+// Запись: k — номер модуля в очереди, off — центр (клеток от кромки поля), sc — масштаб, len — длина вдоль очереди,
+// far — дальний край, lat — сдвиг поперёк очереди, chip — модуль показан значком (боковая очередь, не передний)
+function qOffsetsRaw(lane, from){
+  const lr = isLR(lane.side), out = []; let edge = CFG.Q_EDGE0;
+  for (let k = from; k < lane.q.length; k++){
+    const first = k === from, truss = MOD_LEN[lane.q[k]] > 1;
+    if (lr && !first){                                      // сбоку места нет: следующий — значком на углу площадки
+      const f = out[0]; out.push({ k, off: f.far - CFG.Q_CHIP_IN, sc: CFG.Q_CHIP, len: CFG.Q_CHIP, far: f.far - CFG.Q_CHIP_IN + CFG.Q_CHIP / 2, lat: -CFG.Q_CHIP_LAT, chip: true });
+      continue;
+    }
+    const sc = first ? (lr ? CFG.Q_FRONT_LR : CFG.Q_FRONT_TB) : CFG.Q_NEXT_TB, len = sc * (truss ? CFG.TRUSS_LEN * CFG.TRUSS_Q : 1);
+    out.push({ k, off: edge + len / 2, sc, len, far: edge + len, lat: 0, chip: false }); edge += len + CFG.Q_GAP;
+  }
+  return out;
+}
+// Точка на линии очереди в off клетках от кромки поля наружу
+function slotAt(lane, off, lat){
+  const s = G.s, mid = lane.idx - (isLR(lane.side) ? (s.h - 1) / 2 : (s.w - 1) / 2) + (lat || 0);
+  if (lane.side === 'L') return { x: -s.w / 2 - off, z: mid };
+  if (lane.side === 'R') return { x: s.w / 2 + off, z: mid };
+  if (lane.side === 'T') return { x: mid, z: -s.h / 2 - off };
+  return { x: mid, z: s.h / 2 + off };
+}
+function frontOf(s, li){
+  const ln = s.lanes[li], o = qOffsets(ln, Math.min(s.ptr[li], ln.q.length - 1))[0];
+  return { p: slotAt(ln, o.off), sc: o.sc, kind: ln.q[o.k], len: o.len };
+}
+// Рамка камеры: клетки с полем доски, очереди (передний модуль, хвост, значки) — между шапкой и кнопками
+function fitCamera(){
+  if (!R3.ready || !G.s) return;
+  const s = G.s, pts = [], B = R3.BOARD_PAD;
+  for (const [x, z] of [[-s.w / 2 - B, -s.h / 2 - B], [s.w / 2 + B, -s.h / 2 - B], [-s.w / 2 - B, s.h / 2 + B], [s.w / 2 + B, s.h / 2 + B]]) for (const y of [0, 0.7]) pts.push([x, y, z]);
+  s.lanes.forEach(ln => { for (const o of qOffsets(ln, 0)){
+    const hw = o.chip ? o.len / 2 : o.sc * 0.5, p = slotAt(ln, o.far + (o.chip ? 0 : 0.03), o.lat), lr = isLR(ln.side);
+    for (const y of o.chip ? [0.1] : [0, 0.6]){ pts.push([p.x + (lr ? 0 : hw), y, p.z + (lr ? hw : 0)]); pts.push([p.x - (lr ? 0 : hw), y, p.z - (lr ? hw : 0)]); } } });
+  const g = $('game').getBoundingClientRect(), hdr = Math.max($('banner').getBoundingClientRect().bottom, document.querySelector('header').getBoundingClientRect().bottom) - g.top, ftr = g.bottom - $('btn-undo').getBoundingClientRect().top;
+  R3.fit(pts, { top: hdr + 6, bottom: ftr + 6, side: 4, maxCell: CFG.MAX_CELL_PX });
+}
+// Путь полёта ломаной (мир): от очереди через отражатели к месту стыковки (ферма — к середине своих клеток);
+// «мимо» — за край по итоговому направлению; застрял на отражателе — до него
+function flightPath(L, from){
+  const pts = [from], d = L.dir;
+  for (const t of L.turns) pts.push({ x: cx(t), z: cz(t) });
+  if (L.res === 'dock' || L.res === 'crooked'){
+    const a = { x: cx(L.cells[0]), z: cz(L.cells[0]) };
+    if (MOD_LEN[L.kind] > 1){ const b = L.cells[1] !== undefined ? { x: cx(L.cells[1]), z: cz(L.cells[1]) } : { x: a.x - d[0], z: a.z - d[1] }; pts.push({ x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 }); }
+    else pts.push(a);
+  } else if (L.res === 'off'){
+    const q = L.path.length ? { x: cx(L.path[L.path.length - 1]), z: cz(L.path[L.path.length - 1]) } : from, far = Math.max(G.s.w, G.s.h) + 5;
+    pts.push({ x: q.x + d[0] * far, z: q.z + d[1] * far });
+  } else if (L.path.length) pts.push({ x: cx(L.path[L.path.length - 1]), z: cz(L.path[L.path.length - 1]) });
+  else pts.push({ x: from.x + d[0] * 0.35, z: from.z + d[1] * 0.35 });
+  const lens = [0];
+  for (let k = 1; k < pts.length; k++) lens.push(lens[k - 1] + Math.hypot(pts[k].x - pts[k - 1].x, pts[k].z - pts[k - 1].z));
+  return { pts, lens, total: lens[lens.length - 1] || 1 };
+}
+function pathAt(fp, p){
+  const L = Math.max(0, Math.min(1, p)) * fp.total; let k = 1;
+  while (k < fp.lens.length - 1 && fp.lens[k] < L) k++;
+  const a = fp.pts[k - 1], b = fp.pts[k] || a, seg = (fp.lens[k] - fp.lens[k - 1]) || 1, u = (L - fp.lens[k - 1]) / seg;
+  const yawSeg = (j) => { const p0 = fp.pts[j - 1], p1 = fp.pts[j]; return -Math.atan2(p1.z - p0.z, p1.x - p0.x); };
+  let yaw = yawSeg(k);
+  // на отражателе курс поворачивается плавно: за TURN_R клетки до точки поворота и столько же после (раньше — скачок на 90°)
+  const TURN_R = 0.35, dEnd = (1 - u) * seg, dStart = u * seg;
+  if (k < fp.pts.length - 1 && dEnd < TURN_R) yaw = lerpAng(yaw, yawSeg(k + 1), 0.5 * (1 - dEnd / TURN_R));
+  else if (k > 1 && dStart < TURN_R) yaw = lerpAng(yawSeg(k - 1), yaw, 0.5 + 0.5 * dStart / TURN_R);
+  return { x: a.x + (b.x - a.x) * u, z: a.z + (b.z - a.z) * u, yaw };
+}
+function lerpAng(a, b, t){ const d = ((b - a) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI; return a + d * t; }
+// Профиль полёта: разгон, потом торможение у шва (smoothstep, смещённый к разгону). flyTime — обратная (бисекция).
+// кубическая Эрмита: старт с нуля, плавный разгон и торможение без скачка скорости, у шва остаётся скорость удара CFG.FLY_IMPACT
+const flyPos = (u) => { u = Math.max(0, Math.min(1, u)); return (3 * u * u - 2 * u * u * u) + (u * u * u - u * u) * CFG.FLY_IMPACT; };
+function flyTime(p){ let a = 0, b = 1; for (let k = 0; k < 24; k++){ const m = (a + b) / 2; if (flyPos(m) < p) a = m; else b = m; } return (a + b) / 2; }
+
+// Какая очередь под пальцем: ближайший отрезок «передний модуль — хвост очереди» на экране (проекция 3D), порог по размеру клетки
+function laneAt(px, py){
+  if (!G.s || !R3.ready) return -1;
+  const s = G.s, cp = R3.cellPx(), lim = Math.max(28, cp * 0.72);
+  let best = -1, bd = 1e9;
+  s.lanes.forEach((ln, li) => {
+    if (s.ptr[li] >= ln.q.length) return;
+    const o = qOffsets(ln, s.ptr[li]), a3 = slotAt(ln, o[0].off - o[0].len * 0.3), b3 = slotAt(ln, Math.max(...o.map(q => q.chip ? 0 : q.far)));
+    const a = R3.project(a3.x, 0.28, a3.z), b = R3.project(b3.x, 0.25, b3.z);
+    const vx = b.x - a.x, vy = b.y - a.y, L2 = vx * vx + vy * vy || 1, t = Math.max(0, Math.min(1, ((px - a.x) * vx + (py - a.y) * vy) / L2));
+    const d = Math.hypot(px - a.x - vx * t, py - a.y - vy * t);
+    if (d < bd){ bd = d; best = li; }
+  });
+  return bd <= lim ? best : -1;
+}
+
+// --- частицы и слова: мировые точки, экран — проекция в кадре; движение аналитическое от t0 (§4) ---
+let partSeed = 1;
+function emit(type, x, y, z, n, o){
+  const r = mulberry32((partSeed++) * 2654435761);
+  for (let k = 0; k < n && G.parts.length < CFG.PARTS_MAX; k++){
+    const a = (o.ang || 0) + (r() - 0.5) * (o.spread === undefined ? 6.283 : o.spread), v = (o.v || 2) * (0.5 + r() * 0.8), up = (o.up || 0) * (0.4 + r() * 0.9);
+    G.parts.push({ type, x: x + (r() - 0.5) * (o.jit || 0), y, z: z + (r() - 0.5) * (o.jit || 0), vx: Math.cos(a) * v, vz: -Math.sin(a) * v, vy: up,
+      g: o.g || 0, drag: o.drag || 3, t0: o.t0 || clock(), t1: (o.t0 || clock()) + (o.life || 400) * (0.6 + r() * 0.6),
+      r: (o.r || 0.05) * (0.6 + r() * 0.8), col: o.cols ? o.cols[Math.floor(r() * o.cols.length)] : o.col, rot: r() * 6.28, vr: (r() - 0.5) * 12 });
+  }
+}
+function partPos(p, now){
+  const t = Math.max(0, now - p.t0) / 1000, d = (1 - Math.exp(-p.drag * t)) / p.drag;
+  return { x: p.x + p.vx * d, y: Math.max(0.02, p.y + p.vy * d - 0.5 * p.g * t * t), z: p.z + p.vz * d, t };
+}
+function word(text, x, z, col, big, y){ G.fx.push({ type: 'word', text, x, y: y || 0.9, z, col, big: !!big, t0: clock(), t1: clock() + CFG.WORD_MS }); }
+const ang2 = (d) => Math.atan2(-d[1], d[0]);                                        // направление (dx,dy) клетки → угол для emit (в плоскости XZ)
+
+// --- ход: ядро меняется сразу, экран догоняет анимацией по дедлайнам ---
+function launch(li){
+  const s = G.s;
+  if (!s || G.screen !== 'game' || G.ending || li < 0 || li >= s.lanes.length) return false;
+  if ((G.laneBusy[li] || 0) > clock()) return false;
+  if (isWin(s) || isLose(s)) return false;                         // партия решена: ядро ход не примет — эффектов и полёта тоже нет
+  const L = landing(s, li); if (!L) return false;
+  const now = clock(), lane = s.lanes[li], fr = frontOf(s, li), from = fr.p, d0 = DIR[lane.side];
+  G.s = applyMove(s, li); G.lastInput = now;
+  log('input', 'tap', 'lane=' + lane.side + lane.idx + ' res=' + L.res + (L.turns.length ? ' turns=' + L.turns.length : ''));
+  Sfx.launch(); buzz(10);
+  const back = fr.len / 2 + 0.1;
+  emit('puff', from.x - d0[0] * back, Y_MOD, from.z - d0[1] * back, 6, { ang: ang2(d0) + Math.PI, spread: 1.6, v: 2.2, drag: 5, life: 460, r: 0.07, col: '#c9d2f2', up: 0.4 });
+  G.fx.push({ type: 'ring', x: from.x - d0[0] * back, z: from.z - d0[1] * back, t0: now, t1: now + 300, r0: 0.2, r1: 0.9, col: '#ffd27a' });
+  const fp = flightPath(L, from);
+  const fl = { li, kind: L.kind, res: L.res, cell: L.cell, cells: L.cells, hit: L.hit, dir: L.dir, path: L.path, t0: now, from, fp, sc0: fr.sc,
+    twist: (G.frame % 2 ? 1 : -1) * CFG.TWIST_RAD };
+  // полёт сквозь поле, которое откроет ещё летящая стыковка, ждёт её прилёта (иначе модуль проходит сквозь закрытое поле)
+  const gateWait = s.gates.some(g => (L.path.includes(g) || L.hit === g) && s.gate[g] > G.docksShown && s.gate[g] <= s.hist.length)
+    ? Math.max(0, ...G.flights.filter(o => o.res === 'dock' && !o.arrived).map(o => o.t1 + 120 - now)) : 0;
+  fl.t0 = now + gateWait;
+  fl.t1 = fl.t0 + (L.res === 'blocked' && !L.path.length ? 140 : Math.max(CFG.FLY_MIN_MS, fp.total / CFG.FLY_CPS * 1000));
+  // модуль, который встаёт на ещё летящий, не обгоняет его на экране
+  if (L.res === 'dock') for (const o of G.flights) if (o.res === 'dock' && !o.arrived && o.cells && o.cells.includes(L.hit)) fl.t1 = Math.max(fl.t1, o.t1 + 80);
+  // отражатели вспыхивают и звенят в момент, когда модуль через них проходит
+  for (let k = 0; k < L.turns.length; k++){
+    const at = now + flyTime(fp.lens[k + 1] / fp.total) * (fl.t1 - now), q = fp.pts[k + 1];
+    G.fx.push({ type: 'flash', x: q.x, z: q.z, t0: at, t1: at + 280, r: 1.0, col: '#7fe9ff' });
+    G.sched.push({ at, fn: () => { Sfx.mirror(k); G.mirrorHit[L.turns[k]] = clock(); } });
+  }
+  if (L.res === 'dock'){ for (const c of L.cells) G.pending.add(c); G.laneSlide[li] = now; G.laneBusy[li] = now + CFG.Q_SLIDE_MS;
+    G.sched.push({ at: now + flyTime(1 - CFG.APPROACH) * (fl.t1 - now), fn: () => Sfx.approach(0) }); }
+  else { fl.back0 = fl.t1 + (L.res === 'off' ? 160 : CFG.WOBBLE_MS); fl.back1 = fl.back0 + CFG.RETURN_MS; G.laneBusy[li] = fl.back1; }
+  G.flights.push(fl); log('fx.start', 'flight', 'res=' + L.res);
+  G.press = null; G.hintKey = '';
+  hud(); return true;
+}
+const Y_MOD = 0.32;
+// Модуль долетел (вызывается из кадра по дедлайну): удар, магнит, защёлки, крылья, свет — по дедлайнам в cellFx
+function arrive(fl, now){
+  const s = G.s, d = fl.dir;
+  fl.arrived = true;
+  if (fl.res === 'dock'){
+    for (const k of fl.cells) G.pending.delete(k);
+    const p = { x: cx(fl.cell), z: cz(fl.cell) }, seam = { x: p.x + d[0] * 0.5, z: p.z + d[1] * 0.5 }, yaw = yawOf(d);
+    for (const k of fl.cells){ G.cellFx[k] = { t0: now, twist: fl.twist, seam, yaw, kind: fl.kind }; G.cellYaw[k] = yaw; }
+    G.docksShown++; G.dockAt = now; if (!RM){ G.waves.push({ t0: now + CFG.LATCH_MS, x: seam.x, z: seam.z }); if (G.waves.length > 4) G.waves.shift(); }
+    G.fx.push({ type: 'flash', x: seam.x, z: seam.z, t0: now, t1: now + 260, r: 1.1, col: '#ffe9a8', y: Y_MOD });
+    G.fx.push({ type: 'ring', x: seam.x, z: seam.z, t0: now + CFG.LATCH_MS * 0.8, t1: now + CFG.LATCH_MS * 0.8 + 420, r0: 0.25, r1: 1.0, col: '#ffd36b' });
+    emit('spark', seam.x, Y_MOD, seam.z, 12, { ang: ang2(d) + Math.PI, spread: 3.2, v: 4, drag: 6, life: 380, r: 0.05, col: '#ffe08a', up: 1.5, g: 3 });
+    emit('spark', seam.x, Y_MOD, seam.z, 8, { t0: now + CFG.LATCH_MS * 0.8, spread: 6.28, v: 3, drag: 7, life: 300, r: 0.04, col: '#ffffff', up: 2, g: 4 });
+    G.shakeUntil = now + CFG.SHAKE_MS; G.shakeDir = d; G.shakeAmp = MOD_LEN[fl.kind] > 1 ? 1.5 : 1;
+    G.streak = s.dead ? 0 : G.streak + 1;                 // ход в тупик не хвалим
+    Sfx.dock(Math.max(0, G.streak - 1)); Sfx.latch(CFG.LATCH_MS * 0.8);
+    if (fl.kind === SOLAR) Sfx.unfold(CFG.LATCH_MS); else Sfx.lights(Math.max(0, G.streak - 1), CFG.LATCH_MS + 40);
+    if (MOD_LEN[fl.kind] > 1) Sfx.metal(170, 0.14, 40);
+    buzz(18); G.sched.push({ at: now + CFG.LATCH_MS * 0.8, fn: () => buzz(8) });
+    gatesOpened(s, now);
+    if (!isWin(s) && !s.dead && CFG.STREAK_WORDS[G.streak]){ word(CFG.STREAK_WORDS[G.streak], p.x, p.z, getCss('--lamp')); Sfx.word(); }
+    log('fx.end', 'flight', 'dock'); log('event', 'dock', 'cell=' + fl.cell + ' placed=' + s.placed + '/' + s.total + ' streak=' + G.streak);
+  } else {
+    G.streak = 0;
+    const end = fl.fp.pts[fl.fp.pts.length - 1], at = fl.res === 'off' ? farPoint(fl) : end;
+    G.fx.push({ type: 'batt', x: at.x, z: at.z, t0: now + 80, t1: now + 1000 });
+    if (fl.res === 'off'){
+      Sfx.off(); buzz(30); log('event', 'miss', 'off');
+      G.fx.push({ type: 'edge', t0: now, t1: now + 450 });
+      word('Мимо!', at.x, at.z, getCss('--bad'));
+      explain('off', 'Мимо станции — модуль улетел. Он вернётся, но батарейка потрачена');
+    } else {
+      Sfx.crooked(); buzz([30, 30, 30]); log('event', 'miss', fl.res);
+      G.fx.push({ type: 'flash', x: at.x, z: at.z, t0: now, t1: now + 320, r: 1.2, col: '#ff5a6e', y: Y_MOD });
+      G.shakeUntil = now + CFG.SHAKE_MS; G.shakeDir = d; G.shakeAmp = 0.6;
+      emit('spark', at.x + d[0] * 0.45, Y_MOD, at.z + d[1] * 0.45, 8, { ang: ang2(d) + Math.PI, spread: 2.6, v: 3, drag: 6, life: 320, r: 0.045, col: '#ff7a8a', up: 1 });
+      const truss = MOD_LEN[fl.kind] > 1, onTrussBp = fl.cells.some(k => s.bp[k] === TRUSS);
+      const say = (w, k, m) => { word(w, at.x, at.z, getCss('--bad')); explain(k, m); };
+      if (fl.res === 'blocked' && fl.fp.pts.length > 2) say('Застрял', 'stuck', 'Сразу за отражателем преграда — модулю некуда встать');
+      else if (fl.res === 'blocked') say('Занято', 'blocked', truss ? 'Ферме не хватает места: она длиной в две клетки' : 'Линия занята у самого края — модулю некуда встать');
+      else if (truss && fl.cells.length < 2) say('Торчит!', 'stick', 'Ферма длиной в две клетки — тут она торчит за край');
+      else if (truss || onTrussBp) say('Не та ферма', 'truss', 'Ферма встаёт только целиком в свой длинный пунктир');
+      else if (fl.cells.some(k => s.bp[k])) say('Не тот тип', 'kind', 'Панель с крыльями — в жёлтый пунктир, капсула — в голубой');
+      else say('Кривая!', 'crooked', 'Вне чертежа — вещь выйдет кривой. Модуль вернётся, батарейка потрачена');
+    }
+  }
+  afterMove(now);
+}
+// Точка сразу за дальним краем поля на линии полёта: там «Мимо!»
+function farPoint(fl){
+  const s = G.s, d = fl.dir;
+  if (fl.path && fl.path.length){ const i = fl.path[fl.path.length - 1], x = i % s.w, y = Math.floor(i / s.w);
+    const steps = d[0] > 0 ? s.w - 1 - x : d[0] < 0 ? x : d[1] > 0 ? s.h - 1 - y : y;
+    return { x: cx(i) + d[0] * (steps + 0.9), z: cz(i) + d[1] * (steps + 0.9) }; }
+  const a = fl.from; return { x: a.x + d[0] * (s.w + 1), z: a.z + d[1] * (s.h + 1) };
+}
+// Поля, чей порог совпал с числом стыковок: снимаются вспышкой, искрами и звуком
+// Поля открываются по стыковкам, долетевшим на экране (G.docksShown), а не по счётчику ядра: он опережает полёт
+function gatesOpened(s, now){
+  for (const i of s.gates) if (s.gate[i] === G.docksShown){
+    const p = { x: cx(i), z: cz(i) };
+    G.fx.push({ type: 'flash', x: p.x, z: p.z, t0: now + 60, t1: now + 540, r: 1.5, col: '#b07bff', y: 0.3 });
+    G.fx.push({ type: 'ring', x: p.x, z: p.z, t0: now + 60, t1: now + 540, r0: 0.4, r1: 1.4, col: '#b07bff' });
+    emit('spark', p.x, 0.3, p.z, 16, { spread: 6.28, v: 3, drag: 5, life: 460, r: 0.045, col: '#c9a4ff', t0: now + 60, up: 1.5 });
+    word('Поле снято', p.x, p.z, getCss('--gate'));
+    G.sched.push({ at: now + 60, fn: () => Sfx.gate(true) }); log('event', 'gate.open', 'cell=' + i);
+  }
+}
+function afterMove(now){
+  hud();
+  const s = G.s;
+  if (!G.ending && s.dead && !isLose(s) && !G.flights.some(f => !f.arrived)){
+    Sfx.dead(); toast('Тупик: модуль занял чужое место. Отмени его', true); log('event', 'dead');
+  }
+}
+// Финал проверяется по состоянию в каждом кадре, а не по событию (урок lesson-ending-after-return-anim)
+function checkEnding(now){
+  const s = G.s; if (!s || G.ending || G.screen !== 'game') return;
+  const busy = G.flights.some(f => !f.arrived || (f.back1 && f.back1 > now));
+  if (isWin(s) && !G.flights.some(f => !f.arrived)){
+    const last = Math.max(0, ...Object.values(G.cellFx).map(f => f.t0));
+    G.ending = { kind: 'win', at: Math.max(now + 150, last + CFG.LATCH_MS + CFG.UNFOLD_MS) };
+    log('event', 'level.win', 'level=' + (s.li + 1) + ' bat=' + s.bat + ' taps=' + s.moves); hud();
+  } else if (isLose(s) && !busy){
+    const why = s.bat <= 0 ? 'bat' : 'dead';
+    G.ending = { kind: 'lose', at: now + CFG.LOSE_DELAY_MS, why }; G.loseAt = now; Sfx.lose(); buzz([60, 40, 60]);
+    log('event', 'level.lose', 'why=' + why); log('fx.start', 'blackout'); hud();
+  }
+}
+// Идёт полёт, возврат после промаха или отмена: в это время новая отмена не принимается (иначе два модуля едут на одну площадку)
+function flightsBusy(now){ return G.flights.some(f => !f.arrived || now < f.t1 || (f.back1 && now < f.back1)); }
+function undo(){
+  const s = G.s; if (!s || G.screen !== 'game' || G.ending || !canUndo(s) || flightsBusy(clock())) return;
+  const h = s.hist[s.hist.length - 1], lane = s.lanes[h.li], now = clock(), d = DIR[lane.side];
+  const kind = s.occ[h.cell], a = { x: cx(h.cells[0]), z: cz(h.cells[0]) }, b = h.cells[1] !== undefined ? { x: cx(h.cells[1]), z: cz(h.cells[1]) } : a;
+  G.s = undoMove(s); G.lastInput = now; G.streak = 0; Sfx.undo(); buzz(12); log('input', 'undo', 'lane=' + lane.side + lane.idx);
+  for (const c of h.cells){ delete G.cellFx[c]; delete G.cellYaw[c]; }
+  G.waves = []; G.dockAt = 0;
+  for (const i of s.gates) if (s.gate[i] === G.docksShown){ G.fx.push({ type: 'flash', x: cx(i), z: cz(i), t0: now, t1: now + 400, r: 1.2, col: '#b07bff', y: 0.3 }); Sfx.gate(false); }
+  G.docksShown = Math.max(0, G.docksShown - 1);
+  emit('puff', (a.x + b.x) / 2, Y_MOD, (a.z + b.z) / 2, 7, { spread: 6.28, v: 1.4, drag: 5, life: 420, r: 0.1, col: '#c9d2f2', up: 0.5 });
+  // модуль отстёгивается и пятится в очередь обратной тягой — по тому же пути, что прилетел
+  const L = { res: 'dock', kind, cells: h.cells, turns: [], dir: d, path: [] };
+  const tr = trace(fieldOf(G.s), lane.side, lane.idx, MOD_LEN[kind]); L.turns = tr.turns; L.dir = tr.dir;
+  const fr = frontOf(G.s, h.li), fp = flightPath(L, fr.p);
+  G.flights.push({ li: h.li, kind, res: 'undo', cell: h.cell, cells: h.cells, dir: L.dir, t0: now, t1: now + 340, fp, sc0: fr.sc, arrived: true, twist: 0 });
+  G.laneBusy[h.li] = now + 340; G.hintKey = '';
+  hud();
+}
+// Победа: свет волной от ядра → детали вида достраиваются по одной → объект улетает в ангар → карточка со снимком
+function finishEnding(now){
+  const e = G.ending; if (!e) return;
+  const s = G.s;
+  if (e.kind === 'win'){
+    if (!G.winAt){
+      G.winAt = now; Sfx.win(); buzz([20, 40, 20]); log('fx.start', 'lights');
+      const c0 = { x: cx(s.core[0]), z: cz(s.core[0]) };
+      G.fx.push({ type: 'ring', x: c0.x, z: c0.z, t0: now, t1: now + 900, r0: 0.5, r1: 4, col: '#b8f4ff' });
+      G.decoAt = s.deco.map((d, k) => now + 350 + k * CFG.DECO_STEP_MS);
+      G.decoAt.forEach((t, k) => G.sched.push({ at: t, fn: () => { Sfx.deco(k); const p = decoPos(s.deco[k]); emit('spark', p.x, 0.5, p.z, 8, { spread: 6.28, v: 2, drag: 6, life: 320, r: 0.04, col: '#7fe9ff', up: 1.5 }); log('event', 'deco', s.deco[k].t); } }));
+      G.liftAt = now + 350 + s.deco.length * CFG.DECO_STEP_MS + 300;
+      G.sched.push({ at: G.liftAt, fn: () => { Sfx.liftoff(); buzz([30, 30, 60]); log('fx.start', 'liftoff');
+        if (!RM) emit('confetti', c0.x, 0.6, c0.z, CFG.CONFETTI_N, { spread: 6.28, v: 4.5, drag: 1.6, g: 6, up: 7, life: 1900, r: 0.07, cols: ['#46e6ff', '#ffd23d', '#5cf28a', '#ff8fb1', '#ffffff', '#ff8a1f'] }); } });
+      e.at = G.liftAt + CFG.LIFT_MS + 150; return;
+    }
+    commitWin(s);
+    log('fx.end', 'liftoff'); log('fx.end', 'lights');
+    G.ending = null;
+    goto('win', 'Модулей ' + s.lanes.reduce((n, l) => n + l.q.length, 0) + ' · промахов ' + s.misses + (s.undos ? ' · отмен ' + s.undos : ''));
+  } else { G.ending = null; log('fx.end', 'blackout'); goto('lose', e.why); }
+}
+
+// Награда сохраняется один раз за партию — и когда финал досмотрен, и когда игрок ушёл с поля посреди него
+function commitWin(s){
+  if (!s || G.rewarded === G.runId) return; G.rewarded = G.runId;
+  const li = s.li, stars = starsFor(s);
+  G.save.best[li] = Math.max(G.save.best[li] || 0, stars);
+  G.save.open = Math.max(G.save.open, Math.min(li + 1, LEVELS.length - 1));
+  G.save.level = Math.min(li + 1, LEVELS.length - 1);
+  if (!G.save.hangar.includes(li)) G.save.hangar.push(li);
+  save(); log('event', 'reward', 'stars=' + stars + ' hangar=' + G.save.hangar.length);
+}
+// Уход с поля посреди финала (меню, заново, другой уровень): награду сохранить, презентацию снять — карточка не всплывёт потом
+function abortEnding(){
+  if (!G.ending) return;
+  if (G.ending.kind === 'win') commitWin(G.s);
+  log('event', 'ending.abort', G.ending.kind); G.ending = null; G.sched = []; G.liftAt = 0; G.winAt = 0;
+}
+
+// --- ввод: Pointer Events на 2D-слое; палец на очереди показывает траекторию, отпустил — летит (§3) ---
+const fxc = $('fx'), fctx = fxc.getContext('2d');
+function ptr(e){ const r = fxc.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+function pressLane(li){ if (!G.press || G.press.li === li) return; G.press.li = li; G.press.since = clock(); if (li >= 0){ Sfx.aim(); buzz(4); } }
+fxc.addEventListener('pointerdown', (e) => {
+  Sfx.init();
+  if (G.screen !== 'game' || G.ending) return;
+  if (G.press || (e.pointerType === 'mouse' && e.button !== 0)) return;           // второй палец и правая кнопка не перехватывают нажатие
+  const p = ptr(e), li = laneAt(p.x, p.y);
+  G.press = { id: e.pointerId, li, since: clock() };
+  if (li >= 0){ Sfx.press(); buzz(5); }
+  try { fxc.setPointerCapture(e.pointerId); } catch (err) {}
+});
+fxc.addEventListener('pointermove', (e) => { if (!G.press || e.pointerId !== G.press.id) return; const p = ptr(e); pressLane(laneAt(p.x, p.y)); });
+function onUp(e){
+  if (!G.press || e.pointerId !== G.press.id) return;
+  const p = ptr(e), li = e.type === 'pointercancel' ? -1 : laneAt(p.x, p.y);
+  G.press = null;
+  if (li >= 0) launch(li);
+}
+fxc.addEventListener('pointerup', onUp); fxc.addEventListener('pointercancel', onUp);
+fxc.addEventListener('lostpointercapture', (e) => { if (G.press && e.pointerId === G.press.id) G.press = null; });
+document.addEventListener('keydown', (e) => {          // дубли на клавиатуру для отладки (§3)
+  if (!G.s) return;
+  const k = '123456789acdefg'.indexOf(e.key.toLowerCase());
+  if (k >= 0 && G.screen === 'game') { launch(k); return; }
+  if (e.key === 'z' || e.key === 'u') undo();
+  if (e.key === 'r') startLevel(G.s.li);
+  if (e.key === 'm') goto('menu');
+  if (e.key === 'h') G.lastInput = -1e9;
+});
+$('btn-undo').onclick = () => { Sfx.init(); log('input', 'button', 'undo'); undo(); };
+$('btn-reset').onclick = () => { Sfx.init(); Sfx.ui(); log('input', 'button', 'reset'); startLevel(G.s ? G.s.li : 0); };
+$('btn-menu').onclick = () => { Sfx.init(); Sfx.ui(); log('input', 'button', 'menu'); goto('menu'); };
+$('btn-mute').onclick = () => { Sfx.init(); G.save.muted = !G.save.muted; Sfx.setMuted(G.save.muted); save(); hud(); log('input', 'button', 'mute=' + G.save.muted); };
+
+// --- размер: resize + orientationchange + периодический пересчёт (§2); DPR ≤ 2 с откатом, если кадр тяжёлый ---
+let cssW = 0, cssH = 0, DPR = 1;
+function fit(force){
+  const r = $('game').getBoundingClientRect(); if (!r.width || !r.height) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, G.dprCap);
+  if (!force && r.width === cssW && r.height === cssH && dpr === DPR) return;
+  cssW = r.width; cssH = r.height; DPR = dpr;
+  fxc.width = Math.round(cssW * DPR); fxc.height = Math.round(cssH * DPR);
+  if (R3.ready){ R3.resize(cssW, cssH, DPR); fitCamera(); }
+}
+let fitTimer = 0;
+const refit = () => { clearTimeout(fitTimer); fitTimer = setTimeout(() => fit(), 140); };
+window.addEventListener('resize', refit); window.addEventListener('orientationchange', refit);
+setInterval(() => fit(), 800);
+document.addEventListener('visibilitychange', () => { G.paused = document.hidden; log('event', G.paused ? 'pause' : 'resume'); });
+function adaptDpr(ms){                                   // откат DPR: 2 → 1.5 → 1, если 90-й перцентиль интервала кадров > 24 мс (меньше ~42 к/с)
+  G.frameMs.push(ms); if (G.frameMs.length < 90) return;
+  const a = G.frameMs.slice().sort((x, y) => x - y), p90 = a[Math.floor(a.length * 0.9)]; G.frameMs = [];
+  if (p90 > 24 && G.dprCap > 1){ G.dprCap = G.dprCap > 1.5 ? 1.5 : 1; log('event', 'dpr.down', 'cap=' + G.dprCap + ' p90=' + p90.toFixed(1)); fit(true); }
+}
+
+// --- цвета: CSS-переменные (§9) и цвета 3D ---
+const cssCache = {};
+function getCss(name){ return cssCache[name] || (cssCache[name] = getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#f0f'); }
+const easeU = (u) => u < 0 ? 0 : u > 1 ? 1 : u;
+const easeOut = (u) => 1 - Math.pow(1 - easeU(u), 3);
+const easeIn = (u) => Math.pow(easeU(u), 2);
+const easeOutBack = (u) => { u = easeU(u); const k = 1.9; return 1 + (k + 1) * Math.pow(u - 1, 3) + k * Math.pow(u - 1, 2); };
+const bump = (u) => u <= 0 || u >= 1 ? 0 : Math.sin(u * Math.PI) * (1 - u);
+let C3 = null;                                            // цвета 3D (THREE.Color) — после загрузки сцены
+function colors3(){
+  const c = (h, k) => R3.color(h, k);
+  C3 = { padHot: c('#ffffff', 1.7), cool: c('#59c8ff', 1.1), lit: c('#ffd36b', 1.35), litHot: c('#fff2c4', 1.9), off: c('#2a3060'), core: c('#7ff5e6', 1.3), coreHot: c('#d8fff9', 1.8),
+    red: c('#ff5a6e'), redTint: c('#ff8080'), dim: c('#4a4f78'), white: c('#ffffff'),
+    bpHull: c('#46e6ff'), bpSolar: c('#ffd23d'), bpTruss: c('#ff9a3d'), ok: c('#5cf28a'), bad: c('#ff5a6e'), holo: c('#5fe8ff'),
+    trail: [c('#9fdcff', 0.7), c('#9fdcff', 0.4), c('#9fdcff', 0.18)], ghostOk: c('#5cf28a', 0.9), ghostBad: c('#ff5a6e', 0.9), fieldK: [0, 1, 2, 3].map(k => c('#7a46ff', 0.4 + 0.06 * k)), holoK: [0.3, 0.45, 0.6, 0.75, 0.8].map(k => c('#5fe8ff', k)), holoRing: [0.15, 0.25, 0.35].map(k => c('#5fe8ff', k)),
+    flame: c('#ffb347'), flameCool: c('#7fd0ff'), field: c('#9a62ff'), lampMast: c('#ff6a3d', 1.4), shadow: c('#ffffff'), gold: c('#ffd36b') };
+}
+
+// --- 3D-кадр: игра расставляет модели в пулы (R3.put) по своему состоянию и дедлайнам ---
+// Детали вида: точка крепления у края клетки (мир) и курс наружу
+function decoPos(d){
+  const s = G.s, x = d.x - (s.w - 1) / 2, z = d.y - (s.h - 1) / 2, v = d.d ? DIR[{ T: 'B', B: 'T', L: 'R', R: 'L' }[d.d]] : [0, 0];   // DIR[сторона входа] — внутрь; наружу — противоположная
+  return { x: x + v[0] * 0.5, z: z + v[1] * 0.5, yaw: d.d ? yawOf(v) : 0, cx: x, cz: z };
+}
+const DECO_MODEL = { nose: 'nose', engine: 'engine', fin: 'fin', dish: 'dish', mast: 'mast', leg: 'leg', ring: 'ringDeco' };
+// Перенос всей станции при улёте в ангар: подъём, уход вглубь, уменьшение (центр — ядро)
+function liftXf(now){
+  if (!G.liftAt || now < G.liftAt) return null;
+  const u = easeIn((now - G.liftAt) / CFG.LIFT_MS), c = G.s.core[0];
+  return { u, cx: cx(c), cz: cz(c), up: u * 9, back: u * 4, sc: 1 - 0.6 * u };
+}
+function X(xf, x, y, z){ if (!xf) return [x, y, z]; return [xf.cx + (x - xf.cx) * xf.sc, y * xf.sc + xf.up, xf.cz + (z - xf.cz) * xf.sc - xf.back]; }
+function putM(name, x, y, z, yaw, sc, tint, lamp, mode, xf, rx, rz){
+  const p = X(xf, x, y, z), k = xf ? xf.sc : 1;
+  R3.put(name, R3.mat(p[0], p[1], p[2], yaw, Array.isArray(sc) ? sc.map(v => v * k) : (sc === undefined ? 1 : sc) * k, rx, rz), tint, lamp, mode);
+}
+// Один модуль (капсула/панель/ферма) в точке: курс, масштаб, раскрытие крыльев (0 — сложены, 1 — раскрыты), свет окон
+function putModule(kind, x, z, yaw, sc, o){
+  o = o || {};
+  const xf = o.xf, y = o.y || 0, sq = o.sq || [1, 1, 1], ln = kind === TRUSS && o.len ? o.len : 1, s3 = [sc * sq[0] * ln, sc * sq[1], sc * sq[2]];   // ln — ферма сложена (очередь) или раздвигается (полёт)
+  if (o.mode){                                             // призрак / голограмма
+    const nm = kind === TRUSS ? 'truss' : kind === SOLAR ? 'solarHub' : 'hull';
+    putM(nm, x, y, z, yaw, s3, o.col, null, o.mode, xf);
+    if (kind === SOLAR) for (const side of [-1, 1]) putWing(x, y, z, yaw, s3, side, o.unfold === undefined ? 1 : o.unfold, o.col, o.mode, xf);
+    return;
+  }
+  if (kind === TRUSS) putM('truss', x, y, z, yaw, s3, o.tint, o.lamp || C3.lampMast, null, xf);
+  else if (kind === SOLAR){ putM('solarHub', x, y, z, yaw, s3, o.tint, o.lamp || C3.cool, null, xf); for (const side of [-1, 1]) putWing(x, y, z, yaw, s3, side, o.unfold === undefined ? 1 : o.unfold, o.tint, null, xf); }
+  else putM('hull', x, y, z, yaw, s3, o.tint, o.lamp || C3.cool, null, xf);
+  if (o.nozzle){                                           // сопло сзади (+ пламя): очередь и полёт
+    const back = (kind === TRUSS ? 0.93 * ln : kind === SOLAR ? 0.37 : 0.48) * sc, bx = x - Math.cos(yaw) * back, bz = z + Math.sin(yaw) * back;
+    putM('nozzle', bx, Y_MOD * sc + y, bz, yaw, sc * (o.nz === undefined ? 1 : o.nz), o.tint, null, null, xf);
+    if (o.flame > 0) putM('flame', bx - Math.cos(yaw) * 0.16 * sc, Y_MOD * sc + y, bz + Math.sin(yaw) * 0.16 * sc, yaw, [sc * o.flame, sc * (0.7 + 0.3 * o.flame), sc * (0.7 + 0.3 * o.flame)], o.flameCol || C3.flame, null, null, xf);
+  }
+}
+// Крыло панели: шарнир у верхнего края хаба; сложено — лежит на хабе, перевернувшись на 180° (второе крыло — поверх первого),
+// раскрыто — лежит в сторону
+function putWing(x, y, z, yaw, s3, side, unfold, tint, mode, xf){
+  // по очереди, чтобы не проходили друг сквозь друга: сначала верхнее крыло стопки (side −1), потом нижнее; складываются в обратном порядке
+  const u = unfold >= 1 ? unfold : side < 0 ? Math.min(1, unfold / 0.6) : Math.max(0, (unfold - 0.4) / 0.6);
+  const ang = (1 - u) * Math.PI * 0.985, hz = 0.17 * s3[2], lift = side < 0 ? 0.06 * s3[1] * (1 - easeU(u * 3)) : 0;
+  const lx = Math.sin(yaw) * hz * side, lz = Math.cos(yaw) * hz * side;                    // ось +Z модели в мире: (sin yaw, cos yaw)
+  // крыло уходит в +Z (side 1) или −Z (side −1): для −1 разворот на π вокруг Y
+  putM('solarWing', x + lx, (Y_MOD + 0.235) * s3[1] + y + lift, z + lz, yaw + (side < 0 ? Math.PI : 0), s3, tint, null, mode, xf, -ang, 0);
+}
+
+function render3D(now){
+  const s = G.s; if (!s || !R3.ready) return;
+  R3.begin();
+  const intro = easeU((now - G.introAt) / CFG.INTRO_MS), c0 = s.core[0], xf = liftXf(now);
+  const coreX = cx(c0), coreZ = cz(c0), dead = G.loseAt ? Math.min(1, (now - G.loseAt) / 600) : 0;
+  const blink = G.loseAt && Math.floor((now - G.loseAt) / 140) % 2 === 0 && now - G.loseAt < 700;
+  const tintDead = dead ? (blink ? C3.redTint : C3.dim) : null;
+  const introAt = (i) => easeOutBack((now - G.introAt - Math.hypot(cx(i) - coreX, cz(i) - coreZ) * 70) / 380);
+  const press = G.pressL;
+  const hot = new Map(); if (press) for (const c of press.cells) hot.set(c, press.res === 'dock' ? C3.ok : C3.bad);
+  const winU = G.winAt ? (now - G.winAt) : -1;
+  const lampOf = (i, base) => {                                           // свет окон: волна от ядра на победе, гаснет на проигрыше
+    if (dead) return blink ? C3.red : C3.off;
+    if (winU >= 0){ const w = winU - Math.hypot(cx(i) - coreX, cz(i) - coreZ) * CFG.WIN_WAVE_MS; return w > 0 && w < 260 ? C3.litHot : base; }
+    for (const wv of G.waves){ const w = now - wv.t0 - Math.hypot(cx(i) - wv.x, cz(i) - wv.z) * CFG.DOCK_WAVE_MS; if (w > 0 && w < 150) return C3.litHot; }   // стыковка: огни вспыхивают волной от шва (у каждой стыковки своя волна)
+    return base;
+  };
+  // --- стартовые площадки (только под передним модулем очереди) и стрелки «куда полетит» ---
+  s.lanes.forEach((ln, li) => {
+    let u = easeOutBack((now - G.introAt - 200 - li * 25) / 400);
+    const live = s.ptr[li] < ln.q.length, gone = !live && !G.flights.some(f => f.li === li && (now < f.t1 || (f.back1 && now < f.back1)));
+    if (gone) u *= 1 - easeU((now - (G.laneSlide[li] || 0) - 150) / 260);                  // опустевшая очередь: площадка уезжает
+    if (u <= 0) return;
+    const o = qOffsets(ln, Math.min(s.ptr[li], ln.q.length - 1))[0], p = slotAt(ln, o.off), d = DIR[ln.side], yaw = yawOf(d), pr = G.press && G.press.li === li;
+    R3.put('pad', R3.mat(p.x, -0.02, p.z, yaw, [o.len * u, 1, o.sc * u]), pr ? C3.padHot : tintDead);
+    R3.put('chev', R3.mat(p.x + d[0] * (o.len / 2 + CFG.Q_EDGE0 / 2), 0.03, p.z + d[1] * (o.len / 2 + CFG.Q_EDGE0 / 2), yaw, u), null, live && !dead ? (pr ? C3.litHot : C3.gold) : C3.off);
+  });
+  // --- чертёж: плитки незаполненных клеток (ферма — одна плитка на пару) ---
+  if (!xf) for (let i = 0; i < s.bp.length; i++){
+    const k = s.bp[i]; if (!k || (s.occ[i] > 0 && !G.pending.has(i))) continue;
+    const u = introAt(i); if (u <= 0) continue;
+    const pulse = 0.75 + 0.25 * Math.sin(now / 420 + i);
+    const col = hot.get(i) || (k === SOLAR ? C3.bpSolar : k === TRUSS ? C3.bpTruss : C3.bpHull), a = hot.has(i) ? 1.15 : pulse * (s.occ[i] === GATE ? 0.55 : 0.85);
+    if (k === TRUSS){
+      const j = partner(i); if (j < i) continue;
+      const hz = Math.abs(j - i) === 1;
+      R3.quad('bpTruss', (cx(i) + cx(j)) / 2, 0.012, (cz(i) + cz(j)) / 2, 0.94 * u, 0.94 * u, hz ? 0 : Math.PI / 2, col, a);
+    } else R3.quad(k === SOLAR ? 'bpSolar' : 'bpHull', cx(i), 0.012, cz(i), 0.94 * u, 0.94 * u, 0, col, a);
+  }
+  // --- станция ---
+  const cu = easeOutBack((now - G.introAt) / 420);
+  if (cu > 0){
+    putM('core', coreX, 0, coreZ, 0, cu, tintDead, dead ? C3.off : (winU >= 0 && winU < 400) || lampOf(c0, null) ? C3.coreHot : C3.core, null, xf);
+    putM('coreRing', coreX, 0, coreZ, now / 900, cu, null, dead ? C3.off : C3.core, null, xf);
+    if (!xf) R3.quad('glow', coreX, 0.03, coreZ, 1.5 * cu, 1.5 * cu, 0, C3.core, dead ? 0.08 : 0.24 + 0.06 * Math.sin(now / 500));   // ореол не шире полутора клеток: не засвечивает соседние гнёзда
+    shadowAt(coreX, coreZ, 1.25 * cu, xf);
+  }
+  for (let i = 0; i < s.occ.length; i++){
+    const v = s.base[i], x = cx(i), z = cz(i);
+    if (v === DEBRIS){ const u = introAt(i); if (u > 0){ putM('rock', x, 0, z, now / 2600 + i, u, tintDead); shadowAt(x, z, 0.9 * u); } }   // препятствия остаются на доске, улетает только вещь
+    else if (isMirror(v)){
+      const u = introAt(i); if (u <= 0) continue;
+      const hitU = G.mirrorHit[i] ? easeU((now - G.mirrorHit[i]) / 300) : 1;
+      putM('mirror', x, 0, z, v === MIRROR_A ? Math.PI / 4 : -Math.PI / 4, u * (1 + 0.12 * bump(hitU)), tintDead);
+      shadowAt(x, z, 0.95 * u);
+    } else if (v === GATE){
+      const u = introAt(i); if (u <= 0) continue;
+      const open = G.docksShown >= s.gate[i];
+      for (const sd of [-1, 1]) putM('emitter', x + sd * 0.42, 0, z, 0, u, tintDead, open ? C3.off : C3.field);
+      if (!open) putM('field', x, 0, z, 0, [u, u * (0.95 + 0.05 * Math.sin(now / 90)), u], C3.fieldK[Math.floor((now / 120 + i) % 4)]);
+    }
+  }
+  // модули станции (летящие — нет: их рисует полёт)
+  for (let i = 0; i < s.occ.length; i++){
+    const k = s.occ[i]; if (k <= 0 || G.pending.has(i)) continue;
+    let x = cx(i), z = cz(i);
+    if (k === TRUSS){ const j = partner(i); if (j < i) continue; x = (x + cx(j)) / 2; z = (z + cz(j)) / 2; }
+    const f = G.cellFx[i], yaw0 = G.cellYaw[i] !== undefined ? G.cellYaw[i] : 0;
+    let yaw = yaw0, sq = [1, 1, 1], unfold = 1, lamp = k === TRUSS ? C3.lampMast : C3.lit, tint = tintDead;
+    if (f){
+      const t = now - f.t0, us = t / CFG.SQUASH_MS, b = bump(us);
+      sq = [1 - 0.2 * b, 1 + 0.12 * b, 1 + 0.12 * b];
+      yaw = yaw0 + f.twist * Math.exp(-t / 70) * Math.cos(t / 38);                  // магнит доворачивает перекос пружиной
+      if (k === SOLAR) unfold = CFG.WING_QUEUE + (1 - CFG.WING_QUEUE) * easeOutBack((t - CFG.LATCH_MS * 0.8) / CFG.UNFOLD_MS);
+      const lu = easeU((t - CFG.LATCH_MS) / CFG.LIGHTS_MS);
+      if (k !== TRUSS) lamp = lu <= 0 ? C3.cool : lu < 0.35 ? C3.litHot : C3.lit;
+      // защёлки: 4 пальца вокруг шва, сжимаются к оси и держат, потом уходят в муфту
+      const lt = t / CFG.LATCH_MS;
+      if (t < CFG.LATCH_MS + CFG.LATCH_HOLD_MS + 200){
+        const close = easeOutBack(lt), shrink = 1 - easeU((t - CFG.LATCH_MS - CFG.LATCH_HOLD_MS) / 200);
+        putClaws(f.seam.x, f.seam.z, f.yaw, close, shrink, xf);
+      }
+    }
+    lamp = lampOf(i, lamp);
+    if (winU >= 0 && k !== TRUSS){                                                 // победа: вещь выравнивается — капсулы вдоль своих линий
+      const u = easeOutBack((winU - 120 - Math.hypot(x - coreX, z - coreZ) * CFG.WIN_WAVE_MS) / 320);
+      if (u > 0) yaw = yaw0 + (axisYaw(yaw0, thumbYaw(s, i)) - yaw0) * u;
+    }
+    putModule(k, x, z, yaw, 1, { sq, unfold, lamp, tint, xf });
+    shadowAt(x, z, k === TRUSS ? 1.7 : 0.95, xf, k === TRUSS ? (Math.abs(partner(i) - i) === 1 ? 0 : Math.PI / 2) : 0);
+  }
+  // муфты между соседями станции (ядро и модули), кроме двух клеток одной фермы и шва, на котором ещё не сомкнулись защёлки
+  const st = (i) => (s.base[i] === CORE || s.occ[i] > 0) && !G.pending.has(i);
+  for (let i = 0; i < s.occ.length; i++){
+    if (!st(i)) continue; const x = i % s.w, y = (i - x) / s.w;
+    for (const [dx, dy] of [[1, 0], [0, 1]]){
+      const X2 = x + dx, Y2 = y + dy; if (X2 >= s.w || Y2 >= s.h) continue;
+      const j = Y2 * s.w + X2; if (!st(j)) continue;
+      if (s.occ[i] === TRUSS && s.occ[j] === TRUSS && s.grp[i] === s.grp[j]) continue;
+      const fi = G.cellFx[i], fj = G.cellFx[j], fresh = (f) => f && now - f.t0 < CFG.LATCH_MS;
+      if (fresh(fi) || fresh(fj)) continue;
+      putM('collar', cx(i) + dx * 0.5, 0, cz(i) + dy * 0.5, dx ? 0 : Math.PI / 2, 1, tintDead, null, null, xf);
+    }
+  }
+  // детали вида: до победы не видны (v1.0 рисовала их голограммой — шум поверх станции; цель видна снимком в шапке),
+  // на победе достраиваются по одной (с хлопком), потом улетают вместе со станцией
+  s.deco.forEach((d, k) => {
+    const p = decoPos(d), nm = DECO_MODEL[d.t];
+    const at = G.decoAt[k];
+    if (at && now >= at){
+      const u = easeOutBack((now - at) / 260);
+      putM(nm, d.t === 'ring' ? p.cx : p.x, 0, d.t === 'ring' ? p.cz : p.z, p.yaw, u, null, d.t === 'mast' ? (Math.floor(now / 400) % 2 ? C3.lampMast : C3.litHot) : C3.lit, null, xf);
+      if (d.t === 'engine' && G.liftAt && now >= G.liftAt - 120){                              // сопла разгораются перед улётом
+        const fu = easeU((now - G.liftAt + 120) / 200), fl = (0.9 + 0.2 * Math.sin(now / 30 + k)) * fu * 1.8;
+        putM('flame', p.x + Math.cos(p.yaw) * 0.31, Y_MOD, p.z - Math.sin(p.yaw) * 0.31, p.yaw + Math.PI, [fl, 1 + 0.3 * fu, 1 + 0.3 * fu], C3.flame, null, null, xf);
+      }
+    }
+  });
+  // --- очереди: модули стоят в линию; боковой «следующий» — значок (его рисует 2D-слой), на подтягивании он вырастает в модуль ---
+  s.lanes.forEach((ln, li) => {
+    const flying = G.flights.find(f => f.li === li && f.res !== 'dock' && f.res !== 'undo' && f.back1 && now < f.back1);
+    const undoing = G.flights.find(f => f.li === li && f.res === 'undo' && now < f.t1);
+    const from = s.ptr[li], d = DIR[ln.side], yaw = yawOf(d), o = qOffsets(ln, from);
+    const slid = G.laneSlide[li] ? (RM ? easeU : easeOut)((now - G.laneSlide[li]) / CFG.Q_SLIDE_MS) : 1, prevO = slid < 1 && from > 0 ? qOffsets(ln, from - 1) : null;
+    o.forEach((q, j) => {
+      if (j === 0 && (flying || undoing)) return;
+      const iu = easeOutBack((now - G.introAt - 240 - j * 70) / 420); if (iu <= 0) return;
+      let off = q.off, sc = q.sc, lat = q.lat;
+      if (prevO){ const pv = prevO.find(z => z.k === q.k); if (pv){ off = pv.off + (q.off - pv.off) * slid; sc = pv.sc + (q.sc - pv.sc) * slid; lat = pv.lat + (q.lat - pv.lat) * slid; } }
+      if (q.chip) return;
+      off += (1 - iu) * 2.2;
+      const p = slotAt(ln, off, lat), pr = G.press && G.press.li === li && j === 0, kind = ln.q[q.k];
+      const k2 = sc * (pr ? CFG.PRESS_SCALE : 1) * (1 + 0.02 * Math.sin(now / 300 + li * 1.7 + j));
+      // в очереди модуль без сопла (чище и компактнее); под пальцем сопло выдвигается и разгорается — «сейчас полетит»
+      const nz = pr ? (RM ? easeU : easeOutBack)((now - G.press.since) / 140) : 0;
+      putModule(kind, p.x, p.z, yaw, k2, { unfold: CFG.WING_QUEUE, len: CFG.TRUSS_Q, nozzle: nz > 0, nz, flame: (isLR(ln.side) ? 0.55 : 0.9) * nz * (RM ? 1 : 1 + 0.12 * Math.sin(now / 40)), flameCol: C3.flame, tint: tintDead });   // сбоку факел короче: не уходит за край экрана
+      shadowAt(p.x, p.z, kind === TRUSS ? CFG.TRUSS_LEN * CFG.TRUSS_Q * 0.9 * k2 : 0.88 * k2, null, kind === TRUSS ? (isLR(ln.side) ? 0 : Math.PI / 2) : 0);
+    });
+  });
+  // --- полёты ---
+  for (const fl of G.flights){
+    if (fl.res === 'undo'){
+      if (now >= fl.t1) continue;
+      const u = easeOut((now - fl.t0) / (fl.t1 - fl.t0)), q = pathAt(fl.fp, 1 - u);
+      putModule(fl.kind, q.x, q.z, q.yaw, 1 + (fl.sc0 - 1) * u, { unfold: 1 - u, len: 1 + (CFG.TRUSS_Q - 1) * u, nozzle: true, flame: 0.5, flameCol: C3.flameCool });
+      continue;
+    }
+    let p, yaw, sc = fl.sc0, stretch = 1, twist = 0, len = 1;
+    if (!fl.arrived || now < fl.t1){
+      const u = easeU((now - fl.t0) / (fl.t1 - fl.t0)), pp = flyPos(u), q = pathAt(fl.fp, pp);
+      p = q; yaw = q.yaw;
+      sc = fl.sc0 + (1 - fl.sc0) * Math.min(1, u * 2.5);
+      len = CFG.TRUSS_Q + (1 - CFG.TRUSS_Q) * (RM ? easeU : easeOutBack)(u / CFG.TRUSS_OPEN);                 // ферма раздвигается на старте
+      stretch = 1 + 0.16 * Math.sin(Math.min(1, u * 1.4) * Math.PI) * (pp < 1 - CFG.APPROACH ? 1 : 0.4);
+      if (fl.res === 'dock' && pp > 1 - CFG.APPROACH) twist = fl.twist * easeU((pp - (1 - CFG.APPROACH)) / CFG.APPROACH);   // перекос на подлёте
+      // шлейф: копии позади (призраки)
+      if (!RM && pp < 1 - CFG.APPROACH) for (let g = 1; g <= CFG.TRAIL_GHOSTS; g++){     // шлейф — аддитивный, гаснет в ноль; к подлёту убирается
+        const qg = pathAt(fl.fp, flyPos(Math.max(0, u - g * 0.06)));
+        putModule(fl.kind, qg.x, qg.z, qg.yaw, sc * (1 - g * 0.08), { mode: 'holo', col: C3.trail[g - 1], unfold: CFG.WING_QUEUE, len });
+      }
+      putModule(fl.kind, p.x, p.z, yaw + twist, sc, { sq: [stretch, 1 / Math.sqrt(stretch), 1 / Math.sqrt(stretch)], unfold: CFG.WING_QUEUE, len, nozzle: true, flame: 1.2 - 0.5 * easeU((pp - 0.7) / 0.3), lamp: C3.cool });
+      if (G.frame % 2 === 0 && !RM) emit('puff', p.x - Math.cos(yaw) * 0.5, Y_MOD, p.z + Math.sin(yaw) * 0.5, 1, { spread: 0.6, ang: yaw + Math.PI, v: 0.6, drag: 4, life: 380, r: 0.08, col: '#b8c4ee', up: 0.2 });
+      continue;
+    }
+    if (fl.res === 'dock') continue;
+    // промах: качается на месте (кривая) или улетел; потом возвращается в очередь обратной тягой
+    if (fl.back1 && now < fl.back1){
+      const end = fl.fp.pts[fl.fp.pts.length - 1], d = fl.dir, lane = s.lanes[fl.li], fr = frontOf(s, fl.li);
+      if (now < fl.back0){
+        if (fl.res === 'off') continue;
+        const w = Math.sin((now - fl.t1) / 40) * 0.25 * (1 - easeU((now - fl.t1) / CFG.WOBBLE_MS));
+        putModule(fl.kind, end.x, end.z, yawOf(d) + w, 1, { unfold: CFG.WING_QUEUE, tint: C3.redTint, lamp: C3.red });
+      } else {
+        const u = easeOut((now - fl.back0) / (fl.back1 - fl.back0)), src = fl.res === 'off' ? slotAt(lane, 3.5) : end;
+        const x = src.x + (fr.p.x - src.x) * u, z = src.z + (fr.p.z - src.z) * u;
+        putModule(fl.kind, x, z, yawOf(DIR[lane.side]), 1 + (fr.sc - 1) * u, { unfold: CFG.WING_QUEUE, len: 1 + (CFG.TRUSS_Q - 1) * u, nozzle: true, flame: 0.4, flameCol: C3.flameCool });
+      }
+    }
+  }
+  // --- превью под пальцем: призрак на месте посадки ---
+  if (press && (press.res === 'dock' || press.res === 'crooked')){
+    const L = press, d = L.dir, a = { x: cx(L.cells[0]), z: cz(L.cells[0]) };
+    let x = a.x, z = a.z; if (MOD_LEN[L.kind] > 1){ const b = L.cells[1] !== undefined ? { x: cx(L.cells[1]), z: cz(L.cells[1]) } : { x: a.x - d[0], z: a.z - d[1] }; x = (a.x + b.x) / 2; z = (a.z + b.z) / 2; }
+    putModule(L.kind, x, z, yawOf(d), 1, { mode: 'ghost', col: L.res === 'dock' ? C3.ghostOk : C3.ghostBad, unfold: 1 });
+  }
+  // --- свечения и кольца (fx) ---
+  for (const e of G.fx){
+    if (now < e.t0 || now > e.t1) continue;
+    const u = (now - e.t0) / (e.t1 - e.t0);
+    if (e.type === 'flash') R3.quad('glow', e.x, (e.y || 0) + 0.02, e.z, e.r * 2 * (0.6 + 0.6 * u), e.r * 2 * (0.6 + 0.6 * u), 0, e.c3 || (e.c3 = R3.color(e.col)), (1 - u) * 1.1);
+    if (e.type === 'ring'){ const r = e.r0 + (e.r1 - e.r0) * easeOut(u); R3.quad('ring', e.x, 0.04, e.z, r * 2, r * 2, 0, e.c3 || (e.c3 = R3.color(e.col)), 1 - u); }
+  }
+  R3.end();
+  // дрожь станции — смещение камеры вдоль удара; на победе станция чуть приближается
+  let shake = null;
+  if (now < G.shakeUntil && !RM){ const u = 1 - (G.shakeUntil - now) / CFG.SHAKE_MS, a = Math.sin(u * Math.PI * 3) * (1 - u) * CFG.SHAKE_U * G.shakeAmp; shake = [G.shakeDir[0] * a, G.shakeDir[1] * a]; }
+  const zoom = RM ? 1 : (G.winAt ? 1 + 0.05 * easeOut((now - G.winAt) / 600) : 1) * (G.dockAt ? 1 + CFG.DOCK_PUNCH * bump((now - G.dockAt) / 240) : 1);
+  R3.render(shake, zoom);
+}
+function partner(i){ const s = G.s, g = s.grp[i], w = s.w; for (const j of [i - 1, i + 1, i - w, i + w]) if (j >= 0 && j < s.grp.length && s.grp[j] === g && s.bp[j] === TRUSS && (Math.abs(j - i) === w || Math.floor(j / w) === Math.floor(i / w))) return j; return i; }
+function shadowAt(x, z, len, xf, yaw){ if (xf && xf.u > 0.05) return; R3.quad('shadow', x + 0.05, 0.006, z + 0.08, len * 1.08, Math.min(len, 0.95) * 1.08, yaw || 0, C3.shadow, 1); }   // пятно под моделью со сдвигом от ключевого света (объём при виде сверху), ферма — вытянутое
+// Четыре пальца защёлки вокруг шва: open (0) — торчат наружу, closed (1) — легли поперёк шва
+function putClaws(x, z, yaw, close, shrink, xf){
+  if (shrink <= 0) return;
+  for (let k = 0; k < 4; k++){
+    const roll = k * Math.PI / 2 + Math.PI / 4, open = (1 - close) * 1.1;
+    // шарнир на кольце радиусом 0.2 вокруг оси шва; палец ложится вдоль оси (на соседний модуль)
+    const ry = Math.cos(roll) * 0.24, rz = Math.sin(roll) * 0.24;
+    const wx = x + Math.sin(yaw) * rz, wz = z + Math.cos(yaw) * rz;                       // локальная ось +Z модели в мире — (sin yaw, cos yaw)
+    putM('claw', wx - Math.cos(yaw) * 0.16, Y_MOD + ry, wz + Math.sin(yaw) * 0.16, yaw, shrink * 1.45, null, null, null, xf, roll, open);
+  }
+}
+
+// --- 2D-слой: пунктир траектории, прицел, частицы, слова, «−1», счётчики полей, подсказка ---
+function render2D(now){
+  const c = fctx, s = G.s;
+  c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, fxc.width, fxc.height);
+  if (!s || !R3.ready) return;
+  c.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const P = (x, y, z) => R3.project(x, y, z), cp = R3.cellPx();
+  // траектория под пальцем: бегущие точки до цели, крестик «улетит»
+  const press = G.pressL;
+  if (press){
+    const fr = frontOf(s, press.li), fp = flightPath(press, fr.p), ok = press.res === 'dock', col = ok ? getCss('--ok') : getCss('--bad');
+    const n = Math.max(3, Math.round(fp.total * 3.2)), ph = (now / 260) % 1;
+    c.fillStyle = col;
+    for (let k = 0; k < n; k++){ const t = (k + ph) / n; if (t < 0.06) continue; const q = pathAt(fp, t), sp = P(q.x, 0.06, q.z); c.globalAlpha = 0.35 + 0.65 * (1 - Math.abs(t - 0.6)); c.beginPath(); c.arc(sp.x, sp.y, Math.max(2.5, cp * 0.06), 0, 6.283); c.fill(); }
+    c.globalAlpha = 1;
+    if (press.res === 'off'){ const q = fp.pts[fp.pts.length - 1], far = farPoint({ dir: press.dir, path: press.path, from: fr.p }), sp = P(far.x, 0.1, far.z), r = cp * 0.18;
+      c.strokeStyle = col; c.lineWidth = 4; c.lineCap = 'round'; c.beginPath(); c.moveTo(sp.x - r, sp.y - r); c.lineTo(sp.x + r, sp.y + r); c.moveTo(sp.x + r, sp.y - r); c.lineTo(sp.x - r, sp.y + r); c.stroke(); }
+    else if (press.cells.length){ const a = []; for (const i of press.cells) for (const [ox, oz] of [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]]) a.push(P(cx(i) + ox, 0.02, cz(i) + oz));
+      const mx = (Math.max(...a.map(p => p.x)) + Math.min(...a.map(p => p.x))) / 2, my = (Math.max(...a.map(p => p.y)) + Math.min(...a.map(p => p.y))) / 2;
+      // уголки прицела — по экранной рамке углов клеток посадки (при любом наклоне камеры рамка обнимает клетку целиком)
+      const rx = (Math.max(...a.map(p => p.x)) - Math.min(...a.map(p => p.x))) / 2 + cp * 0.03, ry = (Math.max(...a.map(p => p.y)) - Math.min(...a.map(p => p.y))) / 2 + cp * 0.03;
+      const k2 = cp * 0.16, sn = 1 + 0.06 * Math.sin(now / 90);
+      c.strokeStyle = col; c.lineWidth = 3.5; c.lineCap = 'round';
+      for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]){ const X0 = mx + sx * rx * sn, Y0 = my + sy * ry * sn; c.beginPath(); c.moveTo(X0 - sx * k2, Y0); c.lineTo(X0, Y0); c.lineTo(X0, Y0 - sy * k2); c.stroke(); } }
+  }
+  // счётчики силовых полей
+  for (const i of s.gates){
+    const left = s.gate[i] - G.docksShown; if (left <= 0 || G.liftAt) continue;
+    const sp = P(cx(i), 0.85, cz(i)), r = Math.max(11, cp * 0.2);
+    c.fillStyle = '#2a1260'; c.strokeStyle = '#c9a4ff'; c.lineWidth = 2.5; c.beginPath(); c.arc(sp.x, sp.y, r, 0, 6.283); c.fill(); c.stroke();
+    c.fillStyle = '#fff'; c.font = '900 ' + Math.round(r * 1.25) + 'px Nunito, system-ui'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(left), sp.x, sp.y + 1);
+  }
+  // значки «следующий» у боковых очередей: тип — тем же знаком и цветом, что гнездо чертежа
+  if (!G.liftAt && !G.loseAt) s.lanes.forEach((ln, li) => {
+    if (!isLR(ln.side)) return;
+    const o = qOffsets(ln, s.ptr[li]);
+    for (const q of o){ if (!q.chip) continue;
+      const iu = easeOutBack((now - G.introAt - 420) / 380); if (iu <= 0) continue;
+      const w = slotAt(ln, q.off, q.lat), sp = P(w.x, 0.3, w.z);
+      drawChip(c, sp.x, sp.y, q.sc * cp * iu, ln.q[q.k]); }
+  });
+  // частицы
+  G.parts = G.parts.filter(p => now < p.t1);
+  for (const p of G.parts){
+    if (now < p.t0) continue;
+    const q = partPos(p, now), sp = P(q.x, q.y, q.z), u = (now - p.t0) / (p.t1 - p.t0), r = Math.max(1, p.r * cp);
+    c.globalAlpha = Math.max(0, 1 - u);
+    if (p.type === 'puff'){ c.fillStyle = p.col; c.beginPath(); c.arc(sp.x, sp.y, r * (1 + u * 1.6), 0, 6.283); c.fill(); }
+    else if (p.type === 'confetti'){ c.save(); c.translate(sp.x, sp.y); c.rotate(p.rot + p.vr * q.t); c.fillStyle = p.col; c.fillRect(-r, -r * 0.5, r * 2, r); c.restore(); }
+    else { c.fillStyle = p.col; c.beginPath(); c.arc(sp.x, sp.y, r * (1 - u * 0.5), 0, 6.283); c.fill(); }
+  }
+  c.globalAlpha = 1;
+  // слова, «−1», кромка экрана
+  for (const e of G.fx){
+    if (now < e.t0 || now > e.t1) continue;
+    const u = (now - e.t0) / (e.t1 - e.t0);
+    if (e.type === 'word'){ const sp = P(e.x, e.y, e.z), size = Math.round((e.big ? 30 : 23) * (u < 0.15 ? 0.6 + 0.4 * easeOutBack(u / 0.15) : 1));
+      c.globalAlpha = u > 0.7 ? 1 - (u - 0.7) / 0.3 : 1; c.font = '1000 ' + size + 'px Nunito, system-ui'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.lineWidth = 6; c.strokeStyle = 'rgba(8,10,40,.85)'; const wy = sp.y - cp * 0.55 - 30 * u, wx = Math.max(c.measureText(e.text).width / 2 + 6, Math.min(cssW - c.measureText(e.text).width / 2 - 6, sp.x));   // камера сверху: слово — над модулем, а не на нём; у края экрана не обрезается
+      c.strokeText(e.text, wx, wy); c.fillStyle = e.col; c.fillText(e.text, wx, wy); c.globalAlpha = 1; }
+    if (e.type === 'batt'){ const sp = P(e.x, 0.6, e.z), y = sp.y + cp * 0.45 - 20 * easeOut(u); c.globalAlpha = 1 - easeU((u - 0.6) / 0.4);   // «−1» — под словом промаха, не поверх него
+      c.font = '1000 20px Nunito, system-ui'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineWidth = 5; c.strokeStyle = 'rgba(8,10,40,.85)'; c.strokeText('−1', sp.x + 12, y); c.fillStyle = getCss('--bad'); c.fillText('−1', sp.x + 12, y);
+      if (IMG.bat.complete) c.drawImage(IMG.bat, sp.x - 22, y - 14, 18, 28); c.globalAlpha = 1; }
+    if (e.type === 'edge'){ c.globalAlpha = (1 - u) * 0.6; c.strokeStyle = getCss('--bad'); c.lineWidth = 10; c.strokeRect(0, 0, cssW, cssH); c.globalAlpha = 1; }
+  }
+  // подсказка на обучающих уровнях: пульсирующее кольцо у очереди из решения после бездействия
+  const L = LEVELS[s.li];
+  if (L.hint && L.map && !G.ending && !G.press && G.screen === 'game' && now - G.lastInput > CFG.HINT_IDLE_MS && !G.flights.some(f => !f.arrived)){
+    const key = s.ptr.join(',') + '|' + s.hist.length;
+    if (G.hintKey !== key){ G.hintKey = key; const sol = solve(s); G.hintLane = sol && sol.length ? sol[0] : -1; }
+    if (G.hintLane >= 0){ const fr = frontOf(s, G.hintLane), sp = P(fr.p.x, 0.4, fr.p.z), t = (now / 900) % 1;
+      c.strokeStyle = '#fff'; c.lineWidth = 4; c.globalAlpha = 1 - t; c.beginPath(); c.arc(sp.x, sp.y, cp * (0.3 + 0.5 * t), 0, 6.283); c.stroke(); c.globalAlpha = 1;
+      if (IMG.hand.complete){ const b = Math.sin(now / 160) * 6; c.drawImage(IMG.hand, sp.x + 6, sp.y + 4 + b, 36, 36); } }
+  }
+}
+// Значок «следующий в очереди»: маленькая площадка (цвета стартовой площадки) с модулем в его настоящих цветах —
+// белая капсула с оранжевыми поясами и окном, синяя панель в золотой раме, оранжевая ферма с крестами
+function drawChip(c, x, y, size, kind){
+  const h = size / 2, r = size * 0.28, u = size / 100;
+  c.beginPath(); c.roundRect(x - h, y - h, size, size, r); c.fillStyle = 'rgba(34,42,98,.97)'; c.fill(); c.lineWidth = Math.max(1.5, size * 0.07); c.strokeStyle = '#6f86ea'; c.stroke();
+  if (kind === SOLAR){
+    c.fillStyle = '#ffc130'; c.beginPath(); c.roundRect(x - 34 * u, y - 24 * u, 68 * u, 48 * u, 8 * u); c.fill();
+    c.fillStyle = '#2459e6'; for (const sx of [-1, 1]){ c.beginPath(); c.roundRect(x + (sx < 0 ? -27 : 3) * u, y - 17 * u, 24 * u, 34 * u, 5 * u); c.fill(); }
+  } else if (kind === TRUSS){
+    c.strokeStyle = '#ff8a1f'; c.lineWidth = 9 * u; c.lineJoin = 'round'; c.lineCap = 'round'; c.beginPath(); c.roundRect(x - 34 * u, y - 18 * u, 68 * u, 36 * u, 4 * u); c.stroke();
+    c.strokeStyle = '#ffc130'; c.lineWidth = 7 * u; c.beginPath(); for (const sx of [-1, 1]){ c.moveTo(x + sx * 2 * u, y - 14 * u); c.lineTo(x + sx * 28 * u, y + 14 * u); c.moveTo(x + sx * 2 * u, y + 14 * u); c.lineTo(x + sx * 28 * u, y - 14 * u); } c.stroke();
+  } else {
+    c.fillStyle = '#f4f1fb'; c.beginPath(); c.roundRect(x - 36 * u, y - 23 * u, 72 * u, 46 * u, 23 * u); c.fill();
+    c.fillStyle = '#ff8a1f'; for (const sx of [-1, 1]) c.fillRect(x + sx * 20 * u - 4 * u, y - 23 * u, 8 * u, 46 * u);
+    c.fillStyle = '#59c8ff'; c.beginPath(); c.arc(x, y, 10 * u, 0, 6.283); c.fill();
+  }
+}
+// Картинки для 2D-слоя (значки GPT): батарейка у «−1», рука подсказки — стрелка-шеврон
+const IMG = { bat: new Image(), hand: new Image() };
+IMG.bat.src = UI + 'bat-off.png'; IMG.hand.src = UI + 'ic-play.png';
+
+// --- снимок готового объекта (карточка победы и ангар): та же сборка моделей, центр в ядре ---
+function thumb(li, holo, fresh){
+  if (!R3.ready) return '';
+  const key = li + (holo ? 'h' : '');
+  if (G.thumbs[key] && !fresh) return G.thumbs[key];
+  const lay = layoutOf(li), s0 = G.s;
+  G.s = stateFromLayout(lay, li);                                          // помощники cx/cz/decoPos читают G.s
+  const c0 = lay.core[0], ox = cx(c0), oz = cz(c0), span = Math.max(lay.w, lay.h) * 0.72 + 0.8;
+  const url = R3.snapshot(() => {
+    const col = holo ? R3.color('#5fe8ff', 0.7) : null, mode = holo ? 'holo' : null;
+    if (!holo){ putM('core', -0, 0, 0, 0, 1, null, C3.core); putM('coreRing', 0, 0, 0, 0.5, 1, null, C3.core); }
+    for (let i = 0; i < lay.bp.length; i++){
+      const k = lay.bp[i]; if (!k) continue;
+      let x = cx(i) - ox, z = cz(i) - oz;
+      if (k === TRUSS){ const j = partner(i); if (j < i) continue; x = (cx(i) + cx(j)) / 2 - ox; z = (cz(i) + cz(j)) / 2 - oz; }
+      const yaw = k === TRUSS ? (Math.abs(partner(i) - i) === 1 ? 0 : Math.PI / 2) : thumbYaw(lay, i);
+      putModule(k, x, z, yaw, 1, holo ? { mode, col, unfold: 1 } : { lamp: k === TRUSS ? C3.lampMast : C3.lit });
+    }
+    if (!holo) for (let i = 0; i < lay.bp.length; i++){ const st = (j) => lay.base[j] === CORE || lay.bp[j] > 0, x = i % lay.w, y = (i - x) / lay.w; if (!st(i)) continue;
+      for (const [dx, dy] of [[1, 0], [0, 1]]){ const j = (y + dy) * lay.w + x + dx; if (x + dx >= lay.w || y + dy >= lay.h || !st(j)) continue;
+        if (lay.bp[i] === TRUSS && lay.bp[j] === TRUSS && lay.grp[i] === lay.grp[j]) continue; putM('collar', cx(i) + dx * 0.5 - ox, 0, cz(i) + dy * 0.5 - oz, dx ? 0 : Math.PI / 2, 1); } }
+    lay.deco.forEach(d => { const p = decoPos(d); putM(DECO_MODEL[d.t], (d.t === 'ring' ? p.cx : p.x) - ox, 0, (d.t === 'ring' ? p.cz : p.z) - oz, p.yaw, 1, holo ? col : null, C3.lit, mode); });
+  }, 256, span);
+  G.s = s0;
+  return (G.thumbs[key] = url);
+}
+// Курс капсулы на снимке: вдоль ряда, если соседи по ряду есть, иначе вдоль столбца
+// Курс капсулы в готовой вещи (снимок и доворот на победе): вдоль линии, где соседей станции больше; поровну — вертикально
+function thumbYaw(lay, i){
+  const x = i % lay.w, st = (j) => j >= 0 && j < lay.bp.length && (lay.base[j] === CORE || lay.bp[j] > 0);
+  const h = (x > 0 && st(i - 1) ? 1 : 0) + (x < lay.w - 1 && st(i + 1) ? 1 : 0), v = (st(i - lay.w) ? 1 : 0) + (st(i + lay.w) ? 1 : 0);
+  return h > v ? 0 : Math.PI / 2;
+}
+// Ближайший к from угол из двух направлений оси (капсула симметрична: ось, а не курс)
+function axisYaw(from, axis){ let best = axis, bd = 9; for (const a of [axis, axis + Math.PI, axis - Math.PI]){ const d = Math.abs(((from - a) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI); if (d < bd){ bd = d; best = from + (((a - from) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI); } } return best; }
+
+// --- игровой цикл: rAF + сторожевой setInterval (§4); всё по абсолютному времени ---
+let lastFrame = 0;
+function frame(){
+  if (G.paused) return;
+  const t0 = performance.now(), now = clock(); G.frame++;
+  if (G.s && G.screen === 'game' || G.ending){
+    G.sched = G.sched.filter(e => { if (now >= e.at){ e.fn(); return false; } return true; });
+    for (const fl of G.flights) if (!fl.arrived && now >= fl.t1) arrive(fl, now);
+    G.flights = G.flights.filter(f => !(f.arrived && now > Math.max(f.t1, f.back1 || 0) + 50));
+    G.fx = G.fx.filter(e => now < e.t1);
+    for (const k of Object.keys(G.cellFx)) if (now - G.cellFx[k].t0 > 2000) delete G.cellFx[k];
+    if (G.waves.length && now - G.waves[0].t0 > 1500) G.waves.shift();
+    if (now - G.introAt > CFG.INTRO_MS && G.introAt && !G.introDone){ G.introDone = G.introAt; log('fx.end', 'intro'); }
+    checkEnding(now);
+    if (G.ending && now >= G.ending.at) finishEnding(now);
+    if (toastUntil && now > toastUntil){ $('toast').classList.add('hide'); toastUntil = 0; }
+  }
+  // 3D не рисуется под непрозрачным меню; поле видно только в игре и под карточкой победы/проигрыша
+  if (G.s && (G.screen === 'game' || G.screen === 'win' || G.screen === 'lose')){
+    G.pressL = G.press && G.press.li >= 0 && G.screen === 'game' && !G.ending ? landing(G.s, G.press.li) : null;   // превью — один расчёт на кадр
+    render3D(now); render2D(now);
+  }
+  lastFrame = performance.now();
+}
+// Откат DPR — по интервалу между кадрами rAF (он видит и просадку GPU), а не по времени JS кадра
+let lastRaf = 0;
+// Досъёмка ангара: один снимок за кадр, пока открыт экран ангара
+function hangarTick(){
+  if (G.screen !== 'hangar' || !G.thumbQueue || !G.thumbQueue.length || !R3.ready) return;
+  const i = G.thumbQueue.shift(), got = G.save.hangar.includes(i), src = thumb(i, !got);
+  const img = document.querySelector('.hgrid [data-li="' + i + '"] img'); if (img && src){ img.src = src; img.style.visibility = ''; }
+}
+function loop(ts){ if (lastRaf && G.screen === 'game' && !G.paused){ const d = ts - lastRaf; if (d < 100) adaptDpr(d); } lastRaf = ts; frame(); hangarTick(); requestAnimationFrame(loop); }
+setInterval(() => { if (performance.now() - lastFrame > 60) frame(); }, 40);
+
+// --- дебаг-хук (§6) ---
+window.STYKOVKA_3D = {
+  state(){ const s = G.s; return s && { level: s.li + 1, name: s.name, placed: s.placed, total: s.total, bat: s.bat, moves: s.moves, misses: s.misses, undos: s.undos,
+    dead: s.dead, win: isWin(s), lose: isLose(s), screen: G.screen, flights: G.flights.length, ending: G.ending && G.ending.kind, hangar: G.save.hangar.length }; },
+  lanes(){ const s = G.s; return s.lanes.map((l, li) => { const L = landing(s, li); return { li, lane: l.side + l.idx, left: l.q.length - s.ptr[li], res: L && L.res }; }); },
+  play(n){ startLevel((n || 1) - 1); return this.state(); },
+  tap(x){ const s = G.s; const li = typeof x === 'string' ? s.lanes.findIndex(l => l.side + l.idx === x) : x; return launch(li); },
+  undo(){ undo(); return this.state(); },
+  goto(sc){ if ((sc === 'win' || sc === 'lose') && !G.s) startLevel(G.save.level); goto(sc); return G.screen; },
+  unlockAll(on){ setUnlockAll(on === undefined ? true : on); if (G.screen === 'menu') goto('menu'); return G.save.unlockAll; },
+  solve(){ return (solve(G.s) || []).map(li => G.s.lanes[li].side + G.s.lanes[li].idx); },
+  // автоигра: следующий ход решения каждые ms (по реальному времени)
+  auto(ms){ clearInterval(this._auto); this._auto = setInterval(() => { if (!G.s || G.screen !== 'game' || G.ending){ return; } if (G.flights.some(f => !f.arrived)) return; const sol = solve(G.s); if (sol && sol.length) launch(sol[0]); else clearInterval(this._auto); }, ms || 500); },
+  stop(){ clearInterval(this._auto); },
+  drive(sec){ const n = Math.round((sec || 1) * 1000 / 16); for (let k = 0; k < n; k++){ G.skew += 16; frame(); } return this.state(); },
+  speed(x){ setSpeed(x); return G.timeScale; },
+  hint(){ G.lastInput = -1e9; },
+  reset(){ wipeProgress(); goto('menu'); },
+  r3(){ return R3.info(); },
+  thumb(li, holo){ return thumb((li || 1) - 1, !!holo, true); },
+  fit(){ fit(true); return R3.info(); },
+  G,
+};
+
+// --- старт ---
+(function boot(){
+  const ok = R3.init && R3.init($('cv3'));
+  if (!ok){ $('boot').style.display = 'grid'; log('event', 'r3.error', R3.error || 'no webgl'); }
+  else colors3();
+  fit(true);
+  log('event', 'boot', 'v' + VERSION + ' r3=' + (ok ? 'ok' : 'error'));
+  const h = location.hash.slice(1);
+  goto('menu'); if (h && h !== 'menu') fromHash();          // #menu раньше оставлял пустой экран: fromHash не открывал уже «текущий» экран
+  try { const t = new URLSearchParams(location.search).get('tripo'); if (ok && t) R3.loadTripo(t.split(',')).then(() => { G.thumbs = {}; R3.warm(); log('event', 'tripo', t); }, (e) => log('event', 'tripo.error', String(e))); } catch (e) {}   // проба моделей Tripo
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
