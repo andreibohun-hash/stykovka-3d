@@ -639,7 +639,7 @@ function paramsFor(n){
 // clock() = реальное время × скорость + прогон drive(). Мировые координаты: клетка = 1, поле в XZ с центром в нуле.
 // ---------------------------------------------------------------------------
 const NAME = 'stykovka-3d';
-const VERSION = '1.2';
+const VERSION = '1.2.1';
 const T0 = performance.now();
 function log(kind, name, info){            // журнал [game] — одна строка на событие (§11)
   console.log('[game] ' + JSON.stringify({ t: +((performance.now() - T0) / 1000).toFixed(3), kind, name, info: info === undefined ? '' : String(info) }));

@@ -364,7 +364,7 @@ R3.init = function(canvas){
 };
 
 // ---------- статика уровня (v1.2): доски нет. Одна прозрачная плоскость с текстурой: силуэт вещи (свечение снаружи контура,
-// тонкая линия по контуру, едва заметная заливка внутри) и крестики-узлы сетки в углах свободных клеток. Площадки очередей кладёт игра. ----------
+// тонкая линия по контуру, едва заметная заливка внутри); крестиков сетки нет (v1.2.1). Площадки очередей кладёт игра. ----------
 // mask[i] — клетка принадлежит вещи (чертёж или ядро). Прозрачность плоскости задаёт игра: R3.board(alpha).
 let boardMesh = null;
 R3.setLevel = function(w, h, chapter, mask){
@@ -385,7 +385,7 @@ R3.setLevel = function(w, h, chapter, mask){
   // линия контура: форма, раздутая на t px, минус сама форма
   const t = 3.2, ring = mk((c) => { for (let k = 0; k < 16; k++) c.drawImage(shape, Math.cos(k * Math.PI / 8) * t, Math.sin(k * Math.PI / 8) * t);
     c.globalCompositeOperation = 'destination-out'; c.drawImage(shape, 0, 0); });
-  const line = chapter === 2 ? '#ffd9c2' : '#c8f1ff', aura = chapter === 2 ? '#ff9a6b' : '#4fc8ff', dot = chapter === 2 ? '#d9b8ff' : '#a9c0ff';
+  const line = chapter === 2 ? '#ffd9c2' : '#c8f1ff', aura = chapter === 2 ? '#ff9a6b' : '#4fc8ff';
   const tex = new T.CanvasTexture(mk((c) => {
     // свечение снаружи контура: тень формы, сама форма вычтена
     const glow = mk((g) => { g.shadowColor = aura; g.shadowBlur = 0.26 * px; g.shadowOffsetX = 3 * W; g.drawImage(shape, -3 * W, 0); g.drawImage(shape, -3 * W, 0);
@@ -393,14 +393,7 @@ R3.setLevel = function(w, h, chapter, mask){
     c.globalAlpha = 0.75; c.drawImage(glow, 0, 0);
     c.globalAlpha = 0.07; c.drawImage(tinted(shape, aura), 0, 0);
     c.globalAlpha = 0.95; c.drawImage(tinted(ring, line), 0, 0);
-    // узлы сетки: углы клеток, которых не касается вещь (там уже есть контур)
-    c.globalAlpha = 1;
-    for (let y = 0; y <= h; y++) for (let x = 0; x <= w; x++){
-      if (at(x, y) || at(x - 1, y) || at(x, y - 1) || at(x - 1, y - 1)) continue;
-      const cx = X(x), cy = X(y), arm = 0.07 * px;                          // крестик — метка чертежа (точку легко принять за звезду фона)
-      c.globalAlpha = 0.5; c.strokeStyle = dot; c.lineWidth = 3; c.lineCap = 'round';
-      c.beginPath(); c.moveTo(cx - arm, cy); c.lineTo(cx + arm, cy); c.moveTo(cx, cy - arm); c.lineTo(cx, cy + arm); c.stroke();
-    }
+    // узлы сетки (крестики) убраны в v1.2.1 по отзыву Андрея: поле держат силуэт вещи и гнёзда чертежа
   }));
   tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = 4;
   const geo = new T.PlaneGeometry(w + 2 * M, h + 2 * M); geo.rotateX(-Math.PI / 2);
