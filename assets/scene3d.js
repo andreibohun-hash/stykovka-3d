@@ -367,9 +367,11 @@ R3.init = function(canvas){
 // тонкая линия по контуру, едва заметная заливка внутри); крестиков сетки нет (v1.2.1). Площадки очередей кладёт игра. ----------
 // mask[i] — клетка принадлежит вещи (чертёж или ядро). Прозрачность плоскости задаёт игра: R3.board(alpha).
 let boardMesh = null;
+R3.SILHOUETTE = false;                                                    // силуэт вещи под чертежом (v1.2–1.2.1); выключен в v1.2.2
 R3.setLevel = function(w, h, chapter, mask){
   while (staticGroup.children.length){ const o = staticGroup.children.pop(); o.geometry && o.geometry.dispose(); if (o.material){ o.material.map && o.material.map.dispose(); o.material.dispose(); } }
   boardMesh = null; mask = mask || [];
+  if (!R3.SILHOUETTE) return;                                             // v1.2.2: по отзыву Андрея под чертежом ничего нет — только гнёзда модулей
   const M = 0.5, px = 128, W = Math.round((w + 2 * M) * px), H = Math.round((h + 2 * M) * px), X = (x) => (M + x) * px;
   const mk = (draw) => { const cv = document.createElement('canvas'); cv.width = W; cv.height = H; draw(cv.getContext('2d')); return cv; };
   const at = (x, y) => x >= 0 && y >= 0 && x < w && y < h && !!mask[y * w + x];
