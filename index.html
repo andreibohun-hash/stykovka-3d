@@ -207,7 +207,13 @@ const CFG = {
   UNFOLD_MS: 340,        // раскрытие крыльев солнечной панели (начинается после защёлок)
   LIGHTS_MS: 300,        // в окнах загорается свет (начинается после защёлок)
   SHAKE_MS: 160,         // дрожь станции от стыковки
-  SHAKE_U: 0.035,        // её амплитуда, клеток
+  SHAKE_U: 0.05,         // её амплитуда, клеток
+  HITSTOP_MS: 50,        // стыковка: стоп-кадр в момент касания (игровое время стоит). Не чаще раза в HITSTOP_GAP_MS — быстрые серии не тормозит
+  HITSTOP_GAP_MS: 250,   // стыковка раньше этого после прошлой идёт без стоп-кадра
+  SQUASH_U: 0.34,        // стыковка: сжатие модуля вдоль оси (доля длины), дальше затухающий отскок
+  KNOCK_U: 0.085,        // стыковка: толчок соседей станции вдоль удара, клеток (затухает с расстоянием от шва)
+  KNOCK_WAVE_MS: 22,     // толчок идёт по станции волной: задержка на клетку
+  WAVE_POP: 0.07,        // волна света по станции: модуль на миг крупнее на эту долю
   INTRO_MS: 800,         // появление уровня: чертёж волной от ядра, очереди подъезжают
   PRESS_SCALE: 0.9,      // модуль под пальцем поджимается
   TRAIL_GHOSTS: 3,       // шлейф летящего модуля (полупрозрачные копии позади)
@@ -239,7 +245,7 @@ const CFG = {
   TRUSS_OPEN: 0.35,      // доля полёта, за которую ферма раздвигается
   MAX_CELL_PX: 72,       // клетка на экране не крупнее (маленькие уровни не раздуваются)
   DOCK_WAVE_MS: 70,      // стыковка: огни станции вспыхивают волной от шва, задержка на клетку
-  DOCK_PUNCH: 0.014,     // стыковка: камера на миг приближается на эту долю
+  DOCK_PUNCH: 0.022,     // стыковка: камера на миг приближается на эту долю
 };
 
 // Значения occ; > 0 — пристыкованный модуль этого типа.
@@ -633,7 +639,7 @@ function paramsFor(n){
 // clock() = реальное время × скорость + прогон drive(). Мировые координаты: клетка = 1, поле в XZ с центром в нуле.
 // ---------------------------------------------------------------------------
 const NAME = 'stykovka-3d';
-const VERSION = '1.1';
+const VERSION = '1.2';
 const T0 = performance.now();
 function log(kind, name, info){            // журнал [game] — одна строка на событие (§11)
   console.log('[game] ' + JSON.stringify({ t: +((performance.now() - T0) / 1000).toFixed(3), kind, name, info: info === undefined ? '' : String(info) }));
@@ -662,6 +668,7 @@ const G = {
   streak: 0, told: {}, sched: [], mirrorHit: {}, lastInput: 0, hintKey: '',
   timeScale: 1, rt0: performance.now(), vt0: 0, skew: 0,
   paused: false, frame: 0, thumbs: {}, frameMs: [], dprCap: 2,
+  waves: [], knocks: [], hitStop: 0, hsLast: performance.now(),   // стыковка: волны света, толчки станции, стоп-кадр (реальное время конца)
 };
 function clock(){ return G.vt0 + (performance.now() - G.rt0) * G.timeScale + G.skew; }
 function setSpeed(x){ const now = clock(); G.vt0 = now - G.skew; G.rt0 = performance.now(); G.timeScale = x || 1; }
@@ -713,13 +720,26 @@ const Sfx = {
   aim(){ this.tone(1800, 14, 'square', 0.02); },
   launch(){ this.hiss(300, 380, 2600, 0.3); this.tone(110, 150, 'sine', 0.22, 0, 52); this.hiss(80, 6500, 3500, 0.07, 0, 2, 'highpass'); log('sound', 'launch'); },
   approach(delay){ this.hiss(150, 2600, 700, 0.12, delay, 1.5); },                              // торможение у шва
-  dock(streak){                                                                                  // магнитный «тунк» в момент касания
-    this.tone(82, 140, 'sine', 0.32); this.metal(360, 0.12); this.hiss(35, 3800, 2400, 0.22, 0, 4);
+  // Удар стыковки: низкий «тунк» с падением тона, стук корпуса, лязг металла в два голоса, короткий шум касания и глухой выдох
+  dock(heavy){
+    this.tone(150, 180, 'sine', 0.36, 0, 46); this.tone(heavy ? 150 : 196, 70, 'triangle', 0.16, 0, heavy ? 88 : 118);
+    this.metal(heavy ? 290 : 380, 0.13); this.metal(heavy ? 437 : 571, 0.06, 8);
+    this.hiss(45, 4200, 1800, 0.26, 0, 3); this.hiss(130, 900, 300, 0.12, 0, 0.9, 'lowpass');
     log('sound', 'dock');
   },
-  latch(delay){ for (const [k, f] of [[0, 2600], [1, 3100]]){ this.hiss(22, 6000, 4500, 0.2, delay + k * 55, 6); this.tone(f, 18, 'square', 0.05, delay + k * 55); } this.metal(620, 0.06, delay + 60); log('sound', 'latch'); },
+  // Защёлки: три щелчка трещотки, последний тяжелее и со звоном — «ка-ка-чик»
+  latch(delay){
+    for (const [dt, f, v] of [[0, 2400, 0.05], [45, 2900, 0.05], [95, 3500, 0.07]]){ this.hiss(20, 7000, 4500, 0.2, delay + dt, 6); this.tone(f, 16, 'square', v, delay + dt); }
+    this.metal(740, 0.07, delay + 95); this.tone(120, 60, 'sine', 0.14, delay + 95, 70); log('sound', 'latch');
+  },
   unfold(delay){ this.tone(240, 300, 'sawtooth', 0.035, delay, 520); for (let k = 0; k < 4; k++) this.tone(1900 + k * 120, 10, 'square', 0.025, delay + 40 + k * 60); log('sound', 'unfold'); },
-  lights(streak, delay){ const f = PENTA[Math.min(PENTA.length - 1, streak)]; this.tone(f, 420, 'sine', 0.12, delay); this.tone(f * 1.5, 380, 'sine', 0.05, delay + 50); this.tone(f * 2, 260, 'triangle', 0.03, delay + 90); log('sound', 'lights'); },
+  // «Динь» питания: колокольчик (основной тон, октава, негармонический призвук, квинта следом); тон растёт по серии, с третьей стыковки — искра сверху
+  lights(streak, delay){
+    const f = PENTA[Math.min(PENTA.length - 1, streak)];
+    this.tone(f, 520, 'sine', 0.14, delay); this.tone(f * 2, 300, 'sine', 0.05, delay); this.tone(f * 2.76, 170, 'sine', 0.03, delay); this.tone(f * 1.5, 420, 'sine', 0.045, delay + 60);
+    if (streak >= 2) this.tone(PENTA[Math.min(PENTA.length - 1, streak + 2)], 260, 'triangle', 0.04, delay + 110);
+    log('sound', 'lights');
+  },
   mirror(k){ this.tone(1760 + k * 220, 160, 'sine', 0.09); this.tone(2640 + k * 330, 90, 'sine', 0.04, 10); },
   gate(open){ if (open){ this.hiss(380, 3000, 300, 0.2, 0, 2); this.tone(880, 320, 'sawtooth', 0.04, 0, 220); } else { this.tone(220, 200, 'sawtooth', 0.05, 0, 660); this.hiss(200, 300, 2500, 0.1, 0, 2); } },
   word(){ [0, 1, 2].forEach(k => this.tone(1568 + k * 400, 90, 'triangle', 0.06, 160 + k * 55)); },
@@ -833,13 +853,13 @@ function startLevel(li){
   abortEnding();
   li = Math.max(0, Math.min(LEVELS.length - 1, li));
   G.s = createState(li); G.flights = []; G.fx = []; G.parts = []; G.cellFx = {}; G.cellYaw = {}; G.sched = []; G.mirrorHit = {}; G.pending.clear(); G.laneBusy = {}; G.laneSlide = {};
-  G.docksShown = 0; G.dockAt = 0; G.waves = []; G.runId = (G.runId || 0) + 1;
+  G.docksShown = 0; G.dockAt = 0; G.waves = []; G.knocks = []; G.hitStop = 0; G.runId = (G.runId || 0) + 1;
   G.press = null; G.ending = null; G.winAt = 0; G.loseAt = 0; G.liftAt = 0; G.decoAt = []; G.streak = 0; G.lastInput = clock(); G.hintKey = '';
   G.introAt = RM ? clock() - CFG.INTRO_MS : clock();
   G.save.level = li; save();
   const L = LEVELS[li];
   $('frame').dataset.ch = String(L.ch || 1);
-  if (R3.ready){ R3.setLevel(G.s.w, G.s.h, L.ch || 1); R3.warm(); }                         // прогрев до первого снимка
+  if (R3.ready){ R3.setLevel(G.s.w, G.s.h, L.ch || 1, G.s.bp.map((k, i) => k > 0 || G.s.base[i] === CORE)); R3.warm(); }                         // прогрев до первого снимка
   const goal = R3.ready ? thumb(li, false) : '';                                              // цель уровня — снимок готовой вещи
   $('hud-goal').innerHTML = goal ? '<img src="' + goal + '" alt="">' : '';
   $('banner').innerHTML = L.hint ? '<small>' + L.hint + '</small>' : '';
@@ -924,7 +944,7 @@ function frontOf(s, li){
   const ln = s.lanes[li], o = qOffsets(ln, Math.min(s.ptr[li], ln.q.length - 1))[0];
   return { p: slotAt(ln, o.off), sc: o.sc, kind: ln.q[o.k], len: o.len };
 }
-// Рамка камеры: клетки с полем доски, очереди (передний модуль, хвост, значки) — между шапкой и кнопками
+// Рамка камеры: клетки поля с малым запасом (доски в v1.2 нет), очереди (передний модуль, хвост, значки) — между шапкой и кнопками
 function fitCamera(){
   if (!R3.ready || !G.s) return;
   const s = G.s, pts = [], B = R3.BOARD_PAD;
@@ -1050,18 +1070,34 @@ function arrive(fl, now){
   if (fl.res === 'dock'){
     for (const k of fl.cells) G.pending.delete(k);
     const p = { x: cx(fl.cell), z: cz(fl.cell) }, seam = { x: p.x + d[0] * 0.5, z: p.z + d[1] * 0.5 }, yaw = yawOf(d);
-    for (const k of fl.cells){ G.cellFx[k] = { t0: now, twist: fl.twist, seam, yaw, kind: fl.kind }; G.cellYaw[k] = yaw; }
-    G.docksShown++; G.dockAt = now; if (!RM){ G.waves.push({ t0: now + CFG.LATCH_MS, x: seam.x, z: seam.z }); if (G.waves.length > 4) G.waves.shift(); }
-    G.fx.push({ type: 'flash', x: seam.x, z: seam.z, t0: now, t1: now + 260, r: 1.1, col: '#ffe9a8', y: Y_MOD });
-    G.fx.push({ type: 'ring', x: seam.x, z: seam.z, t0: now + CFG.LATCH_MS * 0.8, t1: now + CFG.LATCH_MS * 0.8 + 420, r0: 0.25, r1: 1.0, col: '#ffd36b' });
-    emit('spark', seam.x, Y_MOD, seam.z, 12, { ang: ang2(d) + Math.PI, spread: 3.2, v: 4, drag: 6, life: 380, r: 0.05, col: '#ffe08a', up: 1.5, g: 3 });
-    emit('spark', seam.x, Y_MOD, seam.z, 8, { t0: now + CFG.LATCH_MS * 0.8, spread: 6.28, v: 3, drag: 7, life: 300, r: 0.04, col: '#ffffff', up: 2, g: 4 });
-    G.shakeUntil = now + CFG.SHAKE_MS; G.shakeDir = d; G.shakeAmp = MOD_LEN[fl.kind] > 1 ? 1.5 : 1;
+    for (const k of fl.cells){ G.cellFx[k] = { t0: now, twist: fl.twist, seam, yaw, kind: fl.kind, d }; G.cellYaw[k] = yaw; }
+    const heavy = MOD_LEN[fl.kind] > 1, quick = now - (G.dockAt || -1e9) < CFG.HITSTOP_GAP_MS, latchAt = now + CFG.LATCH_MS * 0.8, a0 = ang2(d);
+    const mid = heavy && fl.cells[1] !== undefined ? { x: (cx(fl.cells[0]) + cx(fl.cells[1])) / 2, z: (cz(fl.cells[0]) + cz(fl.cells[1])) / 2 } : p;
+    G.docksShown++; G.dockAt = now;
+    if (!RM){
+      G.waves.push({ t0: now + CFG.LATCH_MS, x: seam.x, z: seam.z }); if (G.waves.length > 4) G.waves.shift();
+      G.knocks.push({ t0: now, x: seam.x, z: seam.z, d, amp: heavy ? 1.4 : 1 }); if (G.knocks.length > 4) G.knocks.shift();
+      if (!quick) G.hitStop = performance.now() + CFG.HITSTOP_MS;                      // стоп-кадр: вспышка и модуль у шва замирают на три кадра
+    }
+    // касание: белая полоса света по шву, круглая вспышка, ударное кольцо, искры веером вдоль шва и назад
+    G.fx.push({ type: 'seam', x: seam.x, z: seam.z, yaw, t0: now, t1: now + 220 });
+    G.fx.push({ type: 'flash', x: seam.x, z: seam.z, t0: now, t1: now + 300, r: 1.25, col: '#fff0c0', y: Y_MOD });
+    G.fx.push({ type: 'ring', x: seam.x, z: seam.z, t0: now, t1: now + 320, r0: 0.15, r1: 1.3, col: '#ffffff' });
+    for (const sg of [-1, 1]) emit('streak', seam.x, Y_MOD, seam.z, heavy ? 11 : 8, { ang: a0 + sg * Math.PI / 2, spread: 1.5, v: 6.5, drag: 7, life: 300, r: 0.05, cols: ['#fff6d0', '#ffe08a', '#ffffff'], up: 1.2, g: 3 });
+    emit('spark', seam.x, Y_MOD, seam.z, 8, { ang: a0 + Math.PI, spread: 2.6, v: 3.5, drag: 6, life: 420, r: 0.055, col: '#ffe08a', up: 1.8, g: 4 });
+    // защёлки сомкнулись: кольцо, белые искры, короткий второй толчок камеры
+    G.fx.push({ type: 'ring', x: seam.x, z: seam.z, t0: latchAt, t1: latchAt + 420, r0: 0.25, r1: 1.0, col: '#ffd36b' });
+    emit('streak', seam.x, Y_MOD, seam.z, 8, { t0: latchAt, spread: 6.28, v: 3.2, drag: 7, life: 280, r: 0.04, col: '#ffffff', up: 2, g: 4 });
+    // питание пошло: зелёная вспышка над модулем и зелёные искорки (окно загорается зелёным в тот же момент)
+    G.fx.push({ type: 'flash', x: mid.x, z: mid.z, t0: now + CFG.LATCH_MS, t1: now + CFG.LATCH_MS + 420, r: heavy ? 1.1 : 0.8, col: '#6dff7c', y: 0.78 });
+    emit('spark', mid.x, 0.7, mid.z, 7, { t0: now + CFG.LATCH_MS, spread: 6.28, v: 1.7, drag: 5, life: 440, r: 0.04, col: '#a6ffb4', up: 1.5 });
+    G.shakeUntil = now + CFG.SHAKE_MS; G.shakeDir = d; G.shakeAmp = heavy ? 1.5 : 1;
+    if (!RM) G.sched.push({ at: latchAt, fn: () => { const t = clock(); if (t >= G.shakeUntil){ G.shakeUntil = t + CFG.SHAKE_MS * 0.55; G.shakeAmp = 0.4; } } });
     G.streak = s.dead ? 0 : G.streak + 1;                 // ход в тупик не хвалим
-    Sfx.dock(Math.max(0, G.streak - 1)); Sfx.latch(CFG.LATCH_MS * 0.8);
-    if (fl.kind === SOLAR) Sfx.unfold(CFG.LATCH_MS); else Sfx.lights(Math.max(0, G.streak - 1), CFG.LATCH_MS + 40);
-    if (MOD_LEN[fl.kind] > 1) Sfx.metal(170, 0.14, 40);
-    buzz(18); G.sched.push({ at: now + CFG.LATCH_MS * 0.8, fn: () => buzz(8) });
+    const st = Math.max(0, G.streak - 1);
+    Sfx.dock(heavy); Sfx.latch(CFG.LATCH_MS * 0.8); Sfx.lights(st, CFG.LATCH_MS + 40);     // лязг → щелчки защёлок → «динь», растущий по серии (у любого модуля)
+    if (fl.kind === SOLAR) Sfx.unfold(CFG.LATCH_MS);
+    buzz(heavy ? [34, 174, 12, 50, 18] : [24, 184, 12, 50, 16]);                          // удар → защёлки → питание
     gatesOpened(s, now);
     if (!isWin(s) && !s.dead && CFG.STREAK_WORDS[G.streak]){ word(CFG.STREAK_WORDS[G.streak], p.x, p.z, getCss('--lamp')); Sfx.word(); }
     log('fx.end', 'flight', 'dock'); log('event', 'dock', 'cell=' + fl.cell + ' placed=' + s.placed + '/' + s.total + ' streak=' + G.streak);
@@ -1140,7 +1176,7 @@ function undo(){
   const kind = s.occ[h.cell], a = { x: cx(h.cells[0]), z: cz(h.cells[0]) }, b = h.cells[1] !== undefined ? { x: cx(h.cells[1]), z: cz(h.cells[1]) } : a;
   G.s = undoMove(s); G.lastInput = now; G.streak = 0; Sfx.undo(); buzz(12); log('input', 'undo', 'lane=' + lane.side + lane.idx);
   for (const c of h.cells){ delete G.cellFx[c]; delete G.cellYaw[c]; }
-  G.waves = []; G.dockAt = 0;
+  G.waves = []; G.knocks = []; G.dockAt = 0; G.hitStop = 0;
   for (const i of s.gates) if (s.gate[i] === G.docksShown){ G.fx.push({ type: 'flash', x: cx(i), z: cz(i), t0: now, t1: now + 400, r: 1.2, col: '#b07bff', y: 0.3 }); Sfx.gate(false); }
   G.docksShown = Math.max(0, G.docksShown - 1);
   emit('puff', (a.x + b.x) / 2, Y_MOD, (a.z + b.z) / 2, 7, { spread: 6.28, v: 1.4, drag: 5, life: 420, r: 0.1, col: '#c9d2f2', up: 0.5 });
@@ -1260,7 +1296,7 @@ const bump = (u) => u <= 0 || u >= 1 ? 0 : Math.sin(u * Math.PI) * (1 - u);
 let C3 = null;                                            // цвета 3D (THREE.Color) — после загрузки сцены
 function colors3(){
   const c = (h, k) => R3.color(h, k);
-  C3 = { padHot: c('#ffffff', 1.7), cool: c('#59c8ff', 1.1), lit: c('#ffd36b', 1.35), litHot: c('#fff2c4', 1.9), off: c('#2a3060'), core: c('#7ff5e6', 1.3), coreHot: c('#d8fff9', 1.8),
+  C3 = { padHot: c('#ffffff', 1.7), cool: c('#59c8ff', 1.1), lit: c('#4df06a', 1.3), litHot: c('#e4ffd8', 1.9), winHot: c('#fff2c4', 1.9), waveTint: c('#ffffff', 1.55), waveGlow: c('#7dffa0'), seam: c('#fff6dc'), off: c('#2a3060'), core: c('#7ff5e6', 1.3), coreHot: c('#d8fff9', 1.8),
     red: c('#ff5a6e'), redTint: c('#ff8080'), dim: c('#4a4f78'), white: c('#ffffff'),
     bpHull: c('#46e6ff'), bpSolar: c('#ffd23d'), bpTruss: c('#ff9a3d'), ok: c('#5cf28a'), bad: c('#ff5a6e'), holo: c('#5fe8ff'),
     trail: [c('#9fdcff', 0.7), c('#9fdcff', 0.4), c('#9fdcff', 0.18)], ghostOk: c('#5cf28a', 0.9), ghostBad: c('#ff5a6e', 0.9), fieldK: [0, 1, 2, 3].map(k => c('#7a46ff', 0.4 + 0.06 * k)), holoK: [0.3, 0.45, 0.6, 0.75, 0.8].map(k => c('#5fe8ff', k)), holoRing: [0.15, 0.25, 0.35].map(k => c('#5fe8ff', k)),
@@ -1328,10 +1364,18 @@ function render3D(now){
   const winU = G.winAt ? (now - G.winAt) : -1;
   const lampOf = (i, base) => {                                           // свет окон: волна от ядра на победе, гаснет на проигрыше
     if (dead) return blink ? C3.red : C3.off;
-    if (winU >= 0){ const w = winU - Math.hypot(cx(i) - coreX, cz(i) - coreZ) * CFG.WIN_WAVE_MS; return w > 0 && w < 260 ? C3.litHot : base; }
+    if (winU >= 0){ const w = winU - Math.hypot(cx(i) - coreX, cz(i) - coreZ) * CFG.WIN_WAVE_MS; return w > 0 && w < 260 ? C3.winHot : base; }   // огни победы — тёплые, не зелёные
     for (const wv of G.waves){ const w = now - wv.t0 - Math.hypot(cx(i) - wv.x, cz(i) - wv.z) * CFG.DOCK_WAVE_MS; if (w > 0 && w < 150) return C3.litHot; }   // стыковка: огни вспыхивают волной от шва (у каждой стыковки своя волна)
     return base;
   };
+  // волна света от шва (0..1 в точке): модуль на миг крупнее и ярче, под ним зелёный отсвет
+  const waveAt = (x, z) => { let m = 0; for (const wv of G.waves){ const w = now - wv.t0 - Math.hypot(x - wv.x, z - wv.z) * CFG.DOCK_WAVE_MS; if (w > 0 && w < 240) m = Math.max(m, Math.sin(w / 240 * Math.PI)); } return m; };
+  // толчок станции от удара: смещение вдоль удара идёт волной от шва и затухает (пружина), KN — [dx, dz]
+  const knock = (x, z) => { KN[0] = 0; KN[1] = 0;
+    for (const k of G.knocks){ const dist = Math.hypot(x - k.x, z - k.z), t = now - k.t0 - dist * CFG.KNOCK_WAVE_MS; if (t <= 0 || t > 420) continue;
+      const a = k.amp * CFG.KNOCK_U / (1 + dist * 0.7) * Math.sin(t / 30) * Math.exp(-t / 95); KN[0] += k.d[0] * a; KN[1] += k.d[1] * a; }
+    return KN; };
+  R3.board(easeU((now - G.introAt) / 500) * (xf ? Math.max(0, 1 - xf.u * 4) : 1) * (dead ? 1 - 0.6 * dead : 1));   // силуэт и узлы сетки: проявляются на старте, гаснут с улётом вещи
   // --- стартовые площадки (только под передним модулем очереди) и стрелки «куда полетит» ---
   s.lanes.forEach((ln, li) => {
     let u = easeOutBack((now - G.introAt - 200 - li * 25) / 400);
@@ -1340,9 +1384,9 @@ function render3D(now){
     if (u <= 0) return;
     const o = qOffsets(ln, Math.min(s.ptr[li], ln.q.length - 1))[0], p = slotAt(ln, o.off), d = DIR[ln.side], yaw = yawOf(d), pr = G.press && G.press.li === li;
     R3.put('pad', R3.mat(p.x, -0.02, p.z, yaw, [o.len * u, 1, o.sc * u]), pr ? C3.padHot : tintDead);
-    R3.put('chev', R3.mat(p.x + d[0] * (o.len / 2 + CFG.Q_EDGE0 / 2), 0.03, p.z + d[1] * (o.len / 2 + CFG.Q_EDGE0 / 2), yaw, u), null, live && !dead ? (pr ? C3.litHot : C3.gold) : C3.off);
+    R3.put('chev', R3.mat(p.x + d[0] * (o.len / 2 + CFG.Q_EDGE0 / 2), 0.03, p.z + d[1] * (o.len / 2 + CFG.Q_EDGE0 / 2), yaw, u), null, live && !dead ? (pr ? C3.winHot : C3.gold) : C3.off);
   });
-  // --- чертёж: плитки незаполненных клеток (ферма — одна плитка на пару) ---
+  // --- чертёж: гнёзда незаполненных клеток (ферма — одно гнездо на пару); силуэт вещи и узлы сетки — статика R3.setLevel ---
   if (!xf) for (let i = 0; i < s.bp.length; i++){
     const k = s.bp[i]; if (!k || (s.occ[i] > 0 && !G.pending.has(i))) continue;
     const u = introAt(i); if (u <= 0) continue;
@@ -1357,9 +1401,10 @@ function render3D(now){
   // --- станция ---
   const cu = easeOutBack((now - G.introAt) / 420);
   if (cu > 0){
-    putM('core', coreX, 0, coreZ, 0, cu, tintDead, dead ? C3.off : (winU >= 0 && winU < 400) || lampOf(c0, null) ? C3.coreHot : C3.core, null, xf);
-    putM('coreRing', coreX, 0, coreZ, now / 900, cu, null, dead ? C3.off : C3.core, null, xf);
-    if (!xf) R3.quad('glow', coreX, 0.03, coreZ, 1.5 * cu, 1.5 * cu, 0, C3.core, dead ? 0.08 : 0.24 + 0.06 * Math.sin(now / 500));   // ореол не шире полутора клеток: не засвечивает соседние гнёзда
+    const kc = knock(coreX, coreZ), kx = coreX + kc[0], kz = coreZ + kc[1], wc = dead ? 0 : waveAt(coreX, coreZ), cs = cu * (1 + CFG.WAVE_POP * wc);
+    putM('core', kx, 0, kz, 0, cs, tintDead, dead ? C3.off : (winU >= 0 && winU < 400) || lampOf(c0, null) ? C3.coreHot : C3.core, null, xf);
+    putM('coreRing', kx, 0, kz, now / 900, cs, null, dead ? C3.off : C3.core, null, xf);
+    if (!xf) R3.quad('glow', kx, 0.03, kz, 1.5 * cu, 1.5 * cu, 0, C3.core, dead ? 0.08 : 0.24 + 0.06 * Math.sin(now / 500) + 0.3 * wc);   // ореол не шире полутора клеток: не засвечивает соседние гнёзда
     shadowAt(coreX, coreZ, 1.25 * cu, xf);
   }
   for (let i = 0; i < s.occ.length; i++){
@@ -1385,12 +1430,13 @@ function render3D(now){
     const f = G.cellFx[i], yaw0 = G.cellYaw[i] !== undefined ? G.cellYaw[i] : 0;
     let yaw = yaw0, sq = [1, 1, 1], unfold = 1, lamp = k === TRUSS ? C3.lampMast : C3.lit, tint = tintDead;
     if (f){
-      const t = now - f.t0, us = t / CFG.SQUASH_MS, b = bump(us);
-      sq = [1 - 0.2 * b, 1 + 0.12 * b, 1 + 0.12 * b];
+      // удар: модуль сжимается вдоль оси, упираясь в шов, и отскакивает затухающей пружиной (под reduced-motion — одно мягкое сжатие)
+      const t = now - f.t0, sq1 = RM ? -0.2 * bump(t / CFG.SQUASH_MS) : -CFG.SQUASH_U * Math.sin(t / 27) * Math.exp(-t / 80), push = -sq1 * (k === TRUSS ? 0.9 : 0.45);
+      sq = [1 + sq1, 1 - 0.55 * sq1, 1 - 0.55 * sq1]; x += f.d[0] * push; z += f.d[1] * push;
       yaw = yaw0 + f.twist * Math.exp(-t / 70) * Math.cos(t / 38);                  // магнит доворачивает перекос пружиной
       if (k === SOLAR) unfold = CFG.WING_QUEUE + (1 - CFG.WING_QUEUE) * easeOutBack((t - CFG.LATCH_MS * 0.8) / CFG.UNFOLD_MS);
       const lu = easeU((t - CFG.LATCH_MS) / CFG.LIGHTS_MS);
-      if (k !== TRUSS) lamp = lu <= 0 ? C3.cool : lu < 0.35 ? C3.litHot : C3.lit;
+      if (k !== TRUSS) lamp = lu <= 0 ? C3.cool : lu < 0.35 ? C3.litHot : C3.lit;                  // окно: холодное → вспышка → зелёное «на питании»
       // защёлки: 4 пальца вокруг шва, сжимаются к оси и держат, потом уходят в муфту
       const lt = t / CFG.LATCH_MS;
       if (t < CFG.LATCH_MS + CFG.LATCH_HOLD_MS + 200){
@@ -1403,7 +1449,9 @@ function render3D(now){
       const u = easeOutBack((winU - 120 - Math.hypot(x - coreX, z - coreZ) * CFG.WIN_WAVE_MS) / 320);
       if (u > 0) yaw = yaw0 + (axisYaw(yaw0, thumbYaw(s, i)) - yaw0) * u;
     }
-    putModule(k, x, z, yaw, 1, { sq, unfold, lamp, tint, xf });
+    const kn = knock(x, z), wv = dead ? 0 : waveAt(x, z); x += kn[0]; z += kn[1];
+    if (wv > 0){ if (wv > 0.3 && !tint) tint = C3.waveTint; if (!xf) R3.quad('glow', x, 0.02, z, (k === TRUSS ? 2.6 : 1.7), 1.7, k === TRUSS && Math.abs(partner(i) - i) !== 1 ? Math.PI / 2 : 0, C3.waveGlow, 0.55 * wv); }
+    putModule(k, x, z, yaw, 1 + CFG.WAVE_POP * wv, { sq, unfold, lamp, tint, xf });
     shadowAt(x, z, k === TRUSS ? 1.7 : 0.95, xf, k === TRUSS ? (Math.abs(partner(i) - i) === 1 ? 0 : Math.PI / 2) : 0);
   }
   // муфты между соседями станции (ядро и модули), кроме двух клеток одной фермы и шва, на котором ещё не сомкнулись защёлки
@@ -1416,7 +1464,8 @@ function render3D(now){
       if (s.occ[i] === TRUSS && s.occ[j] === TRUSS && s.grp[i] === s.grp[j]) continue;
       const fi = G.cellFx[i], fj = G.cellFx[j], fresh = (f) => f && now - f.t0 < CFG.LATCH_MS;
       if (fresh(fi) || fresh(fj)) continue;
-      putM('collar', cx(i) + dx * 0.5, 0, cz(i) + dy * 0.5, dx ? 0 : Math.PI / 2, 1, tintDead, null, null, xf);
+      const mx = cx(i) + dx * 0.5, mz = cz(i) + dy * 0.5, km = knock(mx, mz);
+      putM('collar', mx + km[0], 0, mz + km[1], dx ? 0 : Math.PI / 2, 1, tintDead, null, null, xf);
     }
   }
   // детали вида: до победы не видны (v1.0 рисовала их голограммой — шум поверх станции; цель видна снимком в шапке),
@@ -1426,7 +1475,7 @@ function render3D(now){
     const at = G.decoAt[k];
     if (at && now >= at){
       const u = easeOutBack((now - at) / 260);
-      putM(nm, d.t === 'ring' ? p.cx : p.x, 0, d.t === 'ring' ? p.cz : p.z, p.yaw, u, null, d.t === 'mast' ? (Math.floor(now / 400) % 2 ? C3.lampMast : C3.litHot) : C3.lit, null, xf);
+      putM(nm, d.t === 'ring' ? p.cx : p.x, 0, d.t === 'ring' ? p.cz : p.z, p.yaw, u, null, d.t === 'mast' ? (Math.floor(now / 400) % 2 ? C3.lampMast : C3.winHot) : C3.lit, null, xf);
       if (d.t === 'engine' && G.liftAt && now >= G.liftAt - 120){                              // сопла разгораются перед улётом
         const fu = easeU((now - G.liftAt + 120) / 200), fl = (0.9 + 0.2 * Math.sin(now / 30 + k)) * fu * 1.8;
         putM('flame', p.x + Math.cos(p.yaw) * 0.31, Y_MOD, p.z - Math.sin(p.yaw) * 0.31, p.yaw + Math.PI, [fl, 1 + 0.3 * fu, 1 + 0.3 * fu], C3.flame, null, null, xf);
@@ -1505,6 +1554,7 @@ function render3D(now){
     if (now < e.t0 || now > e.t1) continue;
     const u = (now - e.t0) / (e.t1 - e.t0);
     if (e.type === 'flash') R3.quad('glow', e.x, (e.y || 0) + 0.02, e.z, e.r * 2 * (0.6 + 0.6 * u), e.r * 2 * (0.6 + 0.6 * u), 0, e.c3 || (e.c3 = R3.color(e.col)), (1 - u) * 1.1);
+    if (e.type === 'seam'){ const k = 1 - u; R3.quad('glow', e.x, Y_MOD + 0.3, e.z, 0.5 + 0.2 * u, 1.5 + 1.6 * easeOut(u), e.yaw, C3.seam, k * k * 2.2); }   // свет по шву: узкая полоса поперёк оси стыковки
     if (e.type === 'ring'){ const r = e.r0 + (e.r1 - e.r0) * easeOut(u); R3.quad('ring', e.x, 0.04, e.z, r * 2, r * 2, 0, e.c3 || (e.c3 = R3.color(e.col)), 1 - u); }
   }
   R3.end();
@@ -1514,6 +1564,7 @@ function render3D(now){
   const zoom = RM ? 1 : (G.winAt ? 1 + 0.05 * easeOut((now - G.winAt) / 600) : 1) * (G.dockAt ? 1 + CFG.DOCK_PUNCH * bump((now - G.dockAt) / 240) : 1);
   R3.render(shake, zoom);
 }
+const KN = [0, 0];
 function partner(i){ const s = G.s, g = s.grp[i], w = s.w; for (const j of [i - 1, i + 1, i - w, i + w]) if (j >= 0 && j < s.grp.length && s.grp[j] === g && s.bp[j] === TRUSS && (Math.abs(j - i) === w || Math.floor(j / w) === Math.floor(i / w))) return j; return i; }
 function shadowAt(x, z, len, xf, yaw){ if (xf && xf.u > 0.05) return; R3.quad('shadow', x + 0.05, 0.006, z + 0.08, len * 1.08, Math.min(len, 0.95) * 1.08, yaw || 0, C3.shadow, 1); }   // пятно под моделью со сдвигом от ключевого света (объём при виде сверху), ферма — вытянутое
 // Четыре пальца защёлки вокруг шва: open (0) — торчат наружу, closed (1) — легли поперёк шва
@@ -1576,6 +1627,7 @@ function render2D(now){
     const q = partPos(p, now), sp = P(q.x, q.y, q.z), u = (now - p.t0) / (p.t1 - p.t0), r = Math.max(1, p.r * cp);
     c.globalAlpha = Math.max(0, 1 - u);
     if (p.type === 'puff'){ c.fillStyle = p.col; c.beginPath(); c.arc(sp.x, sp.y, r * (1 + u * 1.6), 0, 6.283); c.fill(); }
+    else if (p.type === 'streak'){ const q0 = partPos(p, now - 26), s0 = P(q0.x, q0.y, q0.z); c.strokeStyle = p.col; c.lineCap = 'round'; c.lineWidth = Math.max(1.5, r * (1.1 - u * 0.6)); c.beginPath(); c.moveTo(s0.x, s0.y); c.lineTo(sp.x, sp.y); c.stroke(); }   // искра-штрих: хвост по скорости
     else if (p.type === 'confetti'){ c.save(); c.translate(sp.x, sp.y); c.rotate(p.rot + p.vr * q.t); c.fillStyle = p.col; c.fillRect(-r, -r * 0.5, r * 2, r); c.restore(); }
     else { c.fillStyle = p.col; c.beginPath(); c.arc(sp.x, sp.y, r * (1 - u * 0.5), 0, 6.283); c.fill(); }
   }
@@ -1664,7 +1716,9 @@ function axisYaw(from, axis){ let best = axis, bd = 9; for (const a of [axis, ax
 let lastFrame = 0;
 function frame(){
   if (G.paused) return;
-  const t0 = performance.now(), now = clock(); G.frame++;
+  // стоп-кадр стыковки: пока он идёт, игровое время стоит (реальное время кадра вычитается из сдвига часов)
+  const t0 = performance.now(); if (G.hitStop > G.hsLast) G.skew -= (Math.min(t0, G.hitStop) - G.hsLast) * G.timeScale; G.hsLast = t0;
+  const now = clock(); G.frame++;
   if (G.s && G.screen === 'game' || G.ending){
     G.sched = G.sched.filter(e => { if (now >= e.at){ e.fn(); return false; } return true; });
     for (const fl of G.flights) if (!fl.arrived && now >= fl.t1) arrive(fl, now);
@@ -1672,6 +1726,7 @@ function frame(){
     G.fx = G.fx.filter(e => now < e.t1);
     for (const k of Object.keys(G.cellFx)) if (now - G.cellFx[k].t0 > 2000) delete G.cellFx[k];
     if (G.waves.length && now - G.waves[0].t0 > 1500) G.waves.shift();
+    if (G.knocks.length && now - G.knocks[0].t0 > 700) G.knocks.shift();
     if (now - G.introAt > CFG.INTRO_MS && G.introAt && !G.introDone){ G.introDone = G.introAt; log('fx.end', 'intro'); }
     checkEnding(now);
     if (G.ending && now >= G.ending.at) finishEnding(now);

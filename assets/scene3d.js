@@ -1,7 +1,8 @@
 /* «Стыковка 3D» — 3D-сцена (three.js 0.185.1, vendor/three.js). Игра (index.html) держит всю логику и анимацию в мировых
    координатах: клетка = 1 единица, поле в плоскости XZ, Y — вверх, ось +X модели — её нос. Каждый кадр игра вызывает
    R3.begin(), расставляет модели R3.put(тип, матрица, цвет…) и R3.end(); модели рисуются InstancedMesh по типу и материалу,
-   поэтому число draw calls не растёт с числом модулей. Статика уровня (доска, площадки очередей) собирается в R3.setLevel().
+   поэтому число draw calls не растёт с числом модулей. Статика уровня (v1.2: без доски — силуэт вещи и узлы сетки одной прозрачной
+   плоскостью) собирается в R3.setLevel().
    Модели — данными из примитивов (таблица ART: деталь = геометрия, цвет, позиция, поворот, группа материала).
    Группы материалов: body (глянцевый пластик), metal (хром), lamp (окна и огни — без освещения, цвет задаёт игра),
    glass (стекло ячеек панелей). Призраки и голограммы — та же геометрия одним мешем с прозрачным материалом. */
@@ -25,7 +26,7 @@ const SH = {                    // числа вида (в клетках)
 };
 // Для сравнения кадров вид можно переопределить в адресе: ?pitch=90&fov=20 (в игре не используется)
 try { const q = new URLSearchParams(location.search); if (+q.get('pitch')) SH.PITCH = +q.get('pitch'); if (+q.get('fov')) SH.FOV = +q.get('fov'); } catch (e) {}
-const R3 = window.R3 = { ready: false, PAL, SH, BOARD_PAD: 0.14, stats: { calls: 0, tris: 0 } };
+const R3 = window.R3 = { ready: false, PAL, SH, BOARD_PAD: 0.08, stats: { calls: 0, tris: 0 } };   // BOARD_PAD — поле вокруг клеток в рамке камеры (v1.2: доски нет, запас только под узлы сетки)
 let renderer = null, scene, cam, cw = 0, chh = 0, dpr = 1, envTex = null;
 const tmpM = new T.Matrix4(), tmpQ = new T.Quaternion(), tmpE = new T.Euler(), tmpV = new T.Vector3(), tmpS = new T.Vector3(), tmpC = new T.Color();
 const WHITE = new T.Color(1, 1, 1);
@@ -283,17 +284,37 @@ function makeTex(){
   TEX.shadow = canvasTex(64, 64, (c, w) => { const g = c.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); g.addColorStop(0, 'rgba(4,5,24,0.7)'); g.addColorStop(0.6, 'rgba(4,5,24,0.42)'); g.addColorStop(1, 'rgba(4,5,24,0)'); c.fillStyle = g; c.fillRect(0, 0, w, w); });
   TEX.glow = canvasTex(64, 64, (c, w) => { const g = c.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.35, 'rgba(255,255,255,0.45)'); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(0, 0, w, w); });
   TEX.ring = canvasTex(128, 128, (c, w) => { c.strokeStyle = '#fff'; c.lineWidth = 9; c.shadowColor = '#fff'; c.shadowBlur = 10; c.beginPath(); c.arc(w / 2, w / 2, w / 2 - 14, 0, 6.283); c.stroke(); });
-  // Гнездо чертежа: мягкая заливка, редкий пунктир скруглённого квадрата и значок типа заливкой (белым — цвет даёт инстанс).
-  // Ферма — гнездо 2×1. v1.1: значок крупнее и без обводок — на клетке 54 px читается с первого взгляда.
-  const plate = (cells, icon) => canvasTex(128 * cells, 128, (c, w, h) => {
-    c.fillStyle = 'rgba(255,255,255,0.12)'; rr(c, 9, 9, w - 18, h - 18, 26); c.fill();
-    c.setLineDash([22, 15]); c.lineCap = 'round'; c.lineWidth = 6; c.strokeStyle = '#fff'; rr(c, 9, 9, w - 18, h - 18, 26); c.stroke(); c.setLineDash([]);
-    c.fillStyle = 'rgba(255,255,255,0.62)'; c.strokeStyle = 'rgba(255,255,255,0.62)'; icon(c, w, h);
+  // Гнездо чертежа (v1.2, без доски под ним): стеклянная заливка, светящийся контур — сплошные скруглённые углы и ровные
+  // штрихи по сторонам (пунктир симметричный, без обрывков на углах), значок типа. Всё белым — цвет даёт инстанс.
+  // Ферма — гнездо 2×1. Контур рисуется дважды: размытое свечение и чёткая линия поверх.
+  const PX = 192, IN = 17, RAD = 38, DASH = 26, GAP = 24, WH = 4;   // штрих, зазор, ус у дуги угла (px текстуры)
+  const outline = (c, w, h) => {
+    const x0 = IN, y0 = IN, x1 = w - IN, y1 = h - IN, r = RAD;
+    c.beginPath();
+    for (const [cx, cy, a0] of [[x1 - r, y0 + r, -Math.PI / 2], [x1 - r, y1 - r, 0], [x0 + r, y1 - r, Math.PI / 2], [x0 + r, y0 + r, Math.PI]]){   // углы — сплошные дуги с короткими усами
+      c.moveTo(cx + Math.cos(a0) * r - Math.cos(a0 + Math.PI / 2) * WH, cy + Math.sin(a0) * r - Math.sin(a0 + Math.PI / 2) * WH);
+      c.arc(cx, cy, r, a0, a0 + Math.PI / 2);
+      c.lineTo(cx + Math.cos(a0 + Math.PI / 2) * r - Math.cos(a0) * WH, cy + Math.sin(a0 + Math.PI / 2) * r - Math.sin(a0) * WH);
+    }
+    const side = (ax, ay, bx, by) => {                                       // штрихи по стороне: целое число, зазоры равные
+      const L = Math.hypot(bx - ax, by - ay) - 2 * WH, n = Math.max(1, Math.round((L - GAP) / (DASH + GAP))), g = (L - n * DASH) / (n + 1), ux = (bx - ax) / (L + 2 * WH), uy = (by - ay) / (L + 2 * WH);
+      for (let k = 0; k < n; k++){ const s0 = WH + g + k * (DASH + g); c.moveTo(ax + ux * s0, ay + uy * s0); c.lineTo(ax + ux * (s0 + DASH), ay + uy * (s0 + DASH)); }
+    };
+    side(x0 + r, y0, x1 - r, y0); side(x1, y0 + r, x1, y1 - r); side(x1 - r, y1, x0 + r, y1); side(x0, y1 - r, x0, y0 + r);
+  };
+  const plate = (cells, icon) => canvasTex(PX * cells, PX, (c, w, h) => {
+    const g = c.createRadialGradient(w / 2, h / 2, h * 0.1, w / 2, h / 2, Math.max(w, h) * 0.62);
+    g.addColorStop(0, 'rgba(255,255,255,0.05)'); g.addColorStop(1, 'rgba(255,255,255,0.2)');
+    c.fillStyle = g; rr(c, IN, IN, w - 2 * IN, h - 2 * IN, RAD); c.fill();
+    c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = '#fff';
+    c.save(); c.shadowColor = '#fff'; c.shadowBlur = 14; c.globalAlpha = 0.5; c.lineWidth = 8; outline(c, w, h); c.stroke(); c.restore();
+    c.lineWidth = 8; outline(c, w, h); c.stroke();
+    c.fillStyle = 'rgba(255,255,255,0.7)'; c.strokeStyle = 'rgba(255,255,255,0.7)'; icon(c, w, h);
   });
-  TEX.bpHull = plate(1, (c, w, h) => { rr(c, w * 0.23, h * 0.34, w * 0.54, h * 0.32, h * 0.16); c.fill(); });
-  TEX.bpSolar = plate(1, (c, w, h) => { for (const [x, y] of [[0.27, 0.27], [0.52, 0.27], [0.27, 0.52], [0.52, 0.52]]){ rr(c, w * x, h * y, w * 0.21, h * 0.21, 7); c.fill(); } });
-  TEX.bpTruss = plate(2, (c, w, h) => { c.lineWidth = 11; c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath();
-    for (let k = 0; k <= 6; k++){ const x = w * (0.16 + 0.68 * k / 6), y = h * (k % 2 ? 0.66 : 0.34); if (k) c.lineTo(x, y); else c.moveTo(x, y); } c.stroke(); });
+  TEX.bpHull = plate(1, (c, w, h) => { rr(c, w * 0.25, h * 0.36, w * 0.5, h * 0.28, h * 0.14); c.fill(); });
+  TEX.bpSolar = plate(1, (c, w, h) => { for (const [x, y] of [[0.29, 0.29], [0.52, 0.29], [0.29, 0.52], [0.52, 0.52]]){ rr(c, w * x, h * y, w * 0.19, h * 0.19, 9); c.fill(); } });
+  TEX.bpTruss = plate(2, (c, w, h) => { c.lineWidth = 15; c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath();
+    for (let k = 0; k <= 6; k++){ const x = w * (0.2 + 0.6 * k / 6), y = h * (k % 2 ? 0.63 : 0.37); if (k) c.lineTo(x, y); else c.moveTo(x, y); } c.stroke(); });
 }
 function rr(c, x, y, w, h, r){ c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
 // Плоские квады (лежат на доске): тень, свечение, кольцо, плитки чертежа — тоже инстансы, цвет и размер задаёт игра
@@ -342,32 +363,51 @@ R3.init = function(canvas){
   R3.ready = true; return true;
 };
 
-// ---------- статика уровня: доска с плитками и рамкой; площадки очередей кладёт игра через put('pad') ----------
-let boardInfo = null;
-R3.setLevel = function(w, h, chapter){
+// ---------- статика уровня (v1.2): доски нет. Одна прозрачная плоскость с текстурой: силуэт вещи (свечение снаружи контура,
+// тонкая линия по контуру, едва заметная заливка внутри) и крестики-узлы сетки в углах свободных клеток. Площадки очередей кладёт игра. ----------
+// mask[i] — клетка принадлежит вещи (чертёж или ядро). Прозрачность плоскости задаёт игра: R3.board(alpha).
+let boardMesh = null;
+R3.setLevel = function(w, h, chapter, mask){
   while (staticGroup.children.length){ const o = staticGroup.children.pop(); o.geometry && o.geometry.dispose(); if (o.material){ o.material.map && o.material.map.dispose(); o.material.dispose(); } }
-  const pad = R3.BOARD_PAD, bw = w + 2 * pad, bh = h + 2 * pad, warm = chapter === 2;
-  const plate = new T.Mesh(rbox(bw, 0.16, bh, 0.22, 4), new T.MeshStandardMaterial({ color: warm ? '#221a48' : PAL.board, roughness: 0.6, metalness: 0.1, envMapIntensity: 0.4 }));
-  plate.position.y = -0.09; staticGroup.add(plate);
-  const rim = new T.Mesh(rbox(bw + 0.07, 0.1, bh + 0.07, 0.25, 4), new T.MeshStandardMaterial({ color: warm ? '#5a3fa0' : PAL.boardRim, roughness: 0.3, metalness: 0.4, envMapIntensity: 1 }));
-  rim.position.y = -0.14; staticGroup.add(rim);
-  // плитки клеток — текстура на всю доску: ровные скруглённые квадраты без обводки (сетка видна, но не шумит)
-  const px = 96, tex = canvasTex(Math.round(bw * px), Math.round(bh * px), (c, W, H) => {
-    c.fillStyle = warm ? '#221a48' : PAL.board; c.fillRect(0, 0, W, H);
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++){
-      c.fillStyle = warm ? '#2b2156' : PAL.tile; rr(c, (pad + x) * px + 4, (pad + y) * px + 4, px - 8, px - 8, 18); c.fill();
+  boardMesh = null; mask = mask || [];
+  const M = 0.5, px = 128, W = Math.round((w + 2 * M) * px), H = Math.round((h + 2 * M) * px), X = (x) => (M + x) * px;
+  const mk = (draw) => { const cv = document.createElement('canvas'); cv.width = W; cv.height = H; draw(cv.getContext('2d')); return cv; };
+  const at = (x, y) => x >= 0 && y >= 0 && x < w && y < h && !!mask[y * w + x];
+  // форма вещи: объединение клеток со скруглёнными внешними углами (соседние клетки сшиты перемычками)
+  const e = 0.03 * px, r = 0.2 * px;
+  const shape = mk((c) => { c.fillStyle = '#fff';
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++){ if (!at(x, y)) continue;
+      rr(c, X(x) - e, X(y) - e, px + 2 * e, px + 2 * e, r); c.fill();
+      if (at(x + 1, y)) c.fillRect(X(x) + px / 2, X(y) - e, px, px + 2 * e);
+      if (at(x, y + 1)) c.fillRect(X(x) - e, X(y) + px / 2, px + 2 * e, px);
+    } });
+  const tinted = (src, col) => mk((c) => { c.drawImage(src, 0, 0); c.globalCompositeOperation = 'source-in'; c.fillStyle = col; c.fillRect(0, 0, W, H); });
+  // линия контура: форма, раздутая на t px, минус сама форма
+  const t = 3.2, ring = mk((c) => { for (let k = 0; k < 16; k++) c.drawImage(shape, Math.cos(k * Math.PI / 8) * t, Math.sin(k * Math.PI / 8) * t);
+    c.globalCompositeOperation = 'destination-out'; c.drawImage(shape, 0, 0); });
+  const line = chapter === 2 ? '#ffd9c2' : '#c8f1ff', aura = chapter === 2 ? '#ff9a6b' : '#4fc8ff', dot = chapter === 2 ? '#d9b8ff' : '#a9c0ff';
+  const tex = new T.CanvasTexture(mk((c) => {
+    // свечение снаружи контура: тень формы, сама форма вычтена
+    const glow = mk((g) => { g.shadowColor = aura; g.shadowBlur = 0.26 * px; g.shadowOffsetX = 3 * W; g.drawImage(shape, -3 * W, 0); g.drawImage(shape, -3 * W, 0);
+      g.shadowBlur = 0; g.shadowOffsetX = 0; g.shadowColor = 'transparent'; g.globalCompositeOperation = 'destination-out'; g.drawImage(shape, 0, 0); });
+    c.globalAlpha = 0.75; c.drawImage(glow, 0, 0);
+    c.globalAlpha = 0.07; c.drawImage(tinted(shape, aura), 0, 0);
+    c.globalAlpha = 0.95; c.drawImage(tinted(ring, line), 0, 0);
+    // узлы сетки: углы клеток, которых не касается вещь (там уже есть контур)
+    c.globalAlpha = 1;
+    for (let y = 0; y <= h; y++) for (let x = 0; x <= w; x++){
+      if (at(x, y) || at(x - 1, y) || at(x, y - 1) || at(x - 1, y - 1)) continue;
+      const cx = X(x), cy = X(y), arm = 0.07 * px;                          // крестик — метка чертежа (точку легко принять за звезду фона)
+      c.globalAlpha = 0.5; c.strokeStyle = dot; c.lineWidth = 3; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(cx - arm, cy); c.lineTo(cx + arm, cy); c.moveTo(cx, cy - arm); c.lineTo(cx, cy + arm); c.stroke();
     }
-  });
-  // верх доски — по контуру скруглённой плиты (прямоугольник поверх давал квадратные углы); UV — доля ширины/высоты
-  const rr0 = 0.18, sh = new T.Shape(), hw = bw / 2 - 0.02, hh = bh / 2 - 0.02;
-  sh.moveTo(-hw + rr0, -hh); sh.lineTo(hw - rr0, -hh); sh.quadraticCurveTo(hw, -hh, hw, -hh + rr0); sh.lineTo(hw, hh - rr0); sh.quadraticCurveTo(hw, hh, hw - rr0, hh);
-  sh.lineTo(-hw + rr0, hh); sh.quadraticCurveTo(-hw, hh, -hw, hh - rr0); sh.lineTo(-hw, -hh + rr0); sh.quadraticCurveTo(-hw, -hh, -hw + rr0, -hh);
-  const tg = new T.ShapeGeometry(sh, 6), pa = tg.attributes.position, uv = tg.attributes.uv;
-  for (let k = 0; k < pa.count; k++) uv.setXY(k, pa.getX(k) / bw + 0.5, pa.getY(k) / bh + 0.5);
-  const top = new T.Mesh(tg, new T.MeshStandardMaterial({ map: tex, roughness: 0.6, metalness: 0.05, envMapIntensity: 0.4 }));
-  top.rotation.x = -Math.PI / 2; top.position.y = 0.0; staticGroup.add(top);
-  boardInfo = { w, h };
+  }));
+  tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = 4;
+  const geo = new T.PlaneGeometry(w + 2 * M, h + 2 * M); geo.rotateX(-Math.PI / 2);
+  boardMesh = new T.Mesh(geo, new T.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false }));
+  boardMesh.position.y = 0.004; boardMesh.renderOrder = 0.5; staticGroup.add(boardMesh);
 };
+R3.board = function(alpha){ if (!boardMesh) return; boardMesh.visible = alpha > 0.01; boardMesh.material.opacity = alpha; };
 
 // ---------- кадр: игра расставляет инстансы ----------
 R3.begin = function(){ for (const m of Object.values(MODELS)) m.n = 0; for (const q of Object.values(QUADS)) q.n = 0; };
