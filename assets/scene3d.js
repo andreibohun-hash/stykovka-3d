@@ -226,6 +226,8 @@ Object.assign(ART, {
 
 // ---------- материалы ----------
 const MAT = {};
+// Проба «эпичные корабли» (?look=epic, assets/epic3d.js): свои модели, материалы и свет поверх этих. Без пробы ничего не меняется.
+R3.lib = { T, P, rbox, chamf, prism, cyl, cylX, torusX, torusY, sph, mirZ, merge, shift, ART, MAT, PAL, SH, Y, TOP };
 function makeMats(){
   MAT.hull = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.72, envMapIntensity: 1.25 });       // графитовый металл
   MAT.body = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.3, metalness: 0.05, envMapIntensity: 0.85 });       // белые бронеплиты
@@ -239,6 +241,7 @@ function makeMats(){
   MAT.ghost = new T.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.38, depthWrite: false, toneMapped: false });
   MAT.holo = new T.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.5, depthWrite: false, toneMapped: false, blending: T.AdditiveBlending });
   MAT.body0 = MAT.body;                                                                                     // старое имя группы (модели Tripo)
+  if (R3.epic) R3.epic.mats(MAT);
 }
 
 // ---------- пулы: тип модели → InstancedMesh на группу материала ----------
@@ -402,6 +405,7 @@ function quadOf(name){
 
 // ---------- студийное окружение для бликов: комната с мягкими «софтбоксами» → PMREM ----------
 function makeEnv(){
+  if (R3.epic && R3.epic.env){ const pm = new T.PMREMGenerator(renderer); envTex = pm.fromScene(R3.epic.env(), 0.04).texture; pm.dispose(); return; }
   const s = new T.Scene(), box = new T.BoxGeometry(1, 1, 1);
   const room = new T.Mesh(new T.BoxGeometry(20, 12, 20), new T.MeshBasicMaterial({ color: '#10142a', side: T.BackSide })); s.add(room);
   const light = (col, int, pos, sc) => { const m = new T.Mesh(box, new T.MeshBasicMaterial({ color: new T.Color(col).multiplyScalar(int) })); m.position.set(...pos); m.scale.set(...sc); s.add(m); };
@@ -419,7 +423,7 @@ R3.init = function(canvas){
   try {
     renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
   } catch (e){ R3.error = String(e); return false; }
-  renderer.outputColorSpace = T.SRGBColorSpace; renderer.toneMapping = T.NeutralToneMapping; renderer.toneMappingExposure = 1.0;
+  renderer.outputColorSpace = T.SRGBColorSpace; renderer.toneMapping = T.NeutralToneMapping; renderer.toneMappingExposure = (R3.epic && R3.epic.exposure) || 1.0;
   renderer.setClearColor(0x000000, 0);
   scene = new T.Scene(); root = new T.Group(); scene.add(root); staticGroup = new T.Group(); scene.add(staticGroup);
   cam = new T.PerspectiveCamera(SH.FOV, 1, 0.5, 300); cam.up.set(0, 0, -1);    // «верх» экрана — −Z: камера может смотреть строго вниз
@@ -427,13 +431,18 @@ R3.init = function(canvas){
   // Свет один на всё: при виде почти сверху ключевой свет стоит ниже и сбоку — округлые формы получают градиент, а не плоскую заливку
   // v2.0 стиль A: ключ белый сверху-слева, контровой холодный сзади-сверху (кромки металла и плит светятся на тёмном небе), второй
   // контровой фиолетовый с другой стороны; небо-полушарие слабее — тёмный металл остаётся тёмным
+  if (R3.epic) R3.epic.lights(scene);
+  else {
   scene.add(new T.HemisphereLight(PAL.hemiSky, PAL.hemiGround, 0.75));
   const key = new T.DirectionalLight(PAL.key, 2.2); key.position.set(-6, 8, 5); scene.add(key);
   const rim = new T.DirectionalLight(PAL.rim, 1.7); rim.position.set(4, 5, -8); scene.add(rim);
   const rim2 = new T.DirectionalLight(PAL.rim2, 0.9); rim2.position.set(-7, 3, -4); scene.add(rim2);
+  }
   R3.EN = new T.Color('#3fe6ff');
+  if (R3.epic) R3.epic.arts();                                            // проба: модели пробы поверх ART (общие модули, ядро, швы — под теми же именами)
   for (const n of Object.keys(ART)) modelOf(n);
   for (const n of ['habQ', 'panQ', 'trussQ']){ modelOf(n, 'ghost'); modelOf(n, 'holo'); }
+  if (R3.epic) for (const n of R3.epic.ghosts || []){ modelOf(n, 'ghost'); modelOf(n, 'holo'); }   // готовая деталь под пальцем и в шлейфе
   for (const n of ['shadow', 'glow', 'ring', 'bpHull', 'bpSolar', 'bpTruss']) quadOf(n);
   R3.ready = true; return true;
 };
