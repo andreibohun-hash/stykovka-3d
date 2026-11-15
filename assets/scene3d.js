@@ -386,7 +386,8 @@ function makeTex(){
   };
   const plate = (cells, icon) => canvasTex(PX * cells, PX, (c, w, h) => {
     const g = c.createRadialGradient(w / 2, h / 2, h * 0.1, w / 2, h / 2, Math.max(w, h) * 0.62);
-    g.addColorStop(0, 'rgba(255,255,255,0.05)'); g.addColorStop(1, 'rgba(255,255,255,0.2)');
+    const hw = !!R3.hw;                                                     // проба hw: заливка почти прозрачная — трафарет спокойный (бриф hw2)
+    g.addColorStop(0, hw ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)'); g.addColorStop(1, hw ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.2)');
     c.fillStyle = g; rr(c, IN, IN, w - 2 * IN, h - 2 * IN, RAD); c.fill();
     c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = '#fff';
     c.save(); c.shadowColor = '#fff'; c.shadowBlur = 14; c.globalAlpha = 0.5; c.lineWidth = 8; outline(c, w, h); c.stroke(); c.restore();
@@ -395,7 +396,10 @@ function makeTex(){
   });
   TEX.bpHull = plate(1, (c, w, h) => { rr(c, w * 0.25, h * 0.36, w * 0.5, h * 0.28, h * 0.14); c.fill(); });
   TEX.bpSolar = plate(1, (c, w, h) => { for (const [x, y] of [[0.29, 0.29], [0.52, 0.29], [0.29, 0.52], [0.52, 0.52]]){ rr(c, w * x, h * y, w * 0.19, h * 0.19, 9); c.fill(); } });
-  TEX.bpTruss = plate(2, (c, w, h) => { c.lineWidth = 15; c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath();
+  TEX.bpTruss = R3.hw ? plate(2, (c, w, h) => { c.lineWidth = 11; c.lineCap = 'round'; c.beginPath();   // проба hw: ферма — решётка-лесенка вместо зигзага
+    for (const y of [0.4, 0.6]){ c.moveTo(w * 0.22, h * y); c.lineTo(w * 0.78, h * y); }
+    for (let k = 0; k <= 4; k++){ const x = w * (0.25 + 0.5 * k / 4); c.moveTo(x, h * 0.4); c.lineTo(x, h * 0.6); } c.stroke(); })
+  : plate(2, (c, w, h) => { c.lineWidth = 15; c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath();
     for (let k = 0; k <= 6; k++){ const x = w * (0.2 + 0.6 * k / 6), y = h * (k % 2 ? 0.63 : 0.37); if (k) c.lineTo(x, y); else c.moveTo(x, y); } c.stroke(); });
 }
 function rr(c, x, y, w, h, r){ c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
