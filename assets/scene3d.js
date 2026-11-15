@@ -227,7 +227,9 @@ Object.assign(ART, {
 // ---------- материалы ----------
 const MAT = {};
 // Проба «эпичные корабли» (?look=epic, assets/epic3d.js): свои модели, материалы и свет поверх этих. Без пробы ничего не меняется.
-R3.lib = { T, P, rbox, chamf, prism, cyl, cylX, torusX, torusY, sph, mirZ, merge, shift, ART, MAT, PAL, SH, Y, TOP };
+R3.lib = { T, P, rbox, chamf, prism, cyl, cylX, torusX, torusY, sph, mirZ, merge, shift, ART, MAT, PAL, SH, Y, TOP, loadGLB };
+// Вид пробы: «эпичные корабли» (R3.epic) или «инженерное железо» (R3.hw, assets/hw3d.js) — свои материалы, свет, окружение, модели
+const LOOK = () => R3.epic || R3.hw;
 function makeMats(){
   MAT.hull = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.72, envMapIntensity: 1.25 });       // графитовый металл
   MAT.body = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.3, metalness: 0.05, envMapIntensity: 0.85 });       // белые бронеплиты
@@ -241,7 +243,7 @@ function makeMats(){
   MAT.ghost = new T.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.38, depthWrite: false, toneMapped: false });
   MAT.holo = new T.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.5, depthWrite: false, toneMapped: false, blending: T.AdditiveBlending });
   MAT.body0 = MAT.body;                                                                                     // старое имя группы (модели Tripo)
-  if (R3.epic) R3.epic.mats(MAT);
+  if (LOOK()) LOOK().mats(MAT);
 }
 
 // ---------- пулы: тип модели → InstancedMesh на группу материала ----------
@@ -250,11 +252,11 @@ class Model {
   constructor(name, parts, mode){
     this.name = name; this.n = 0; this.meshes = [];
     const byGrp = {};
-    if (mode){ byGrp[mode] = parts.map(p => Object.assign({}, p, { col: '#ffffff' })); }                // призрак/голограмма: одна геометрия, цвет — инстанса
+    if (mode){ byGrp[mode] = parts.filter(p => p.grp !== 'lamp' || !p.mat).map(p => ({ geo: p.geo, pos: p.pos, rot: p.rot, grp: mode, col: '#ffffff', share: !!p.mat })); }   // призрак/голограмма: одна геометрия, цвет — инстанса (у GLB свой материал не берём, слой свечения окон — тоже)
     else for (const p of parts) (byGrp[p.grp] = byGrp[p.grp] || []).push(p);
     for (const [g, ps] of Object.entries(byGrp)){
       const own = ps[0].mat;                                                                     // деталь со своим материалом (GLB из Tripo): геометрия и текстура как есть
-      const mesh = new T.InstancedMesh(own ? ps[0].geo : merge(ps), own || MAT[g], SH.CAP);
+      const mesh = new T.InstancedMesh(own || (ps.length === 1 && ps[0].share) ? ps[0].geo : merge(ps), own || MAT[g], SH.CAP);   // призрак модели GLB — та же индексированная геометрия, без развёртки
       mesh.instanceMatrix.setUsage(T.DynamicDrawUsage); mesh.count = 0; mesh.visible = false; mesh.frustumCulled = false;
       mesh.setColorAt(0, WHITE); mesh.instanceColor.setUsage(T.DynamicDrawUsage);
       mesh.userData.grp = g; mesh.renderOrder = g === 'holo' || g === 'ghost' || g === 'add' ? 5 : 0;
@@ -349,6 +351,13 @@ R3.loadTripo = async function(names){
   R3.tripo = names;
 };
 
+// Заменить или добавить модель (проба hw: модели GLB грузятся после init). parts — детали ART; ghosts — заодно пулы призрака и шлейфа.
+R3.addModel = function(name, partsFn, ghosts){
+  ART[name] = partsFn;
+  for (const key of [name, name + ':ghost', name + ':holo']){ const old = MODELS[key]; if (!old) continue;
+    for (const mesh of old.meshes){ root.remove(mesh); if (!mesh.geometry.userData.keep) mesh.geometry.dispose(); mesh.dispose(); } delete MODELS[key]; }
+  modelOf(name); if (ghosts){ modelOf(name, 'ghost'); modelOf(name, 'holo'); }
+};
 // ---------- текстуры: тень-пятно, свечение, плитки чертежа ----------
 function canvasTex(w, h, draw, srgb){ const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
   const t = new T.CanvasTexture(c); if (srgb !== false) t.colorSpace = T.SRGBColorSpace; t.anisotropy = 4; return t; }
@@ -405,7 +414,7 @@ function quadOf(name){
 
 // ---------- студийное окружение для бликов: комната с мягкими «софтбоксами» → PMREM ----------
 function makeEnv(){
-  if (R3.epic && R3.epic.env){ const pm = new T.PMREMGenerator(renderer); envTex = pm.fromScene(R3.epic.env(), 0.04).texture; pm.dispose(); return; }
+  if (LOOK() && LOOK().env){ const pm = new T.PMREMGenerator(renderer); envTex = pm.fromScene(LOOK().env(), 0.04).texture; pm.dispose(); return; }
   const s = new T.Scene(), box = new T.BoxGeometry(1, 1, 1);
   const room = new T.Mesh(new T.BoxGeometry(20, 12, 20), new T.MeshBasicMaterial({ color: '#10142a', side: T.BackSide })); s.add(room);
   const light = (col, int, pos, sc) => { const m = new T.Mesh(box, new T.MeshBasicMaterial({ color: new T.Color(col).multiplyScalar(int) })); m.position.set(...pos); m.scale.set(...sc); s.add(m); };
@@ -423,7 +432,7 @@ R3.init = function(canvas){
   try {
     renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
   } catch (e){ R3.error = String(e); return false; }
-  renderer.outputColorSpace = T.SRGBColorSpace; renderer.toneMapping = T.NeutralToneMapping; renderer.toneMappingExposure = (R3.epic && R3.epic.exposure) || 1.0;
+  renderer.outputColorSpace = T.SRGBColorSpace; renderer.toneMapping = T.NeutralToneMapping; renderer.toneMappingExposure = (LOOK() && LOOK().exposure) || 1.0;
   renderer.setClearColor(0x000000, 0);
   scene = new T.Scene(); root = new T.Group(); scene.add(root); staticGroup = new T.Group(); scene.add(staticGroup);
   cam = new T.PerspectiveCamera(SH.FOV, 1, 0.5, 300); cam.up.set(0, 0, -1);    // «верх» экрана — −Z: камера может смотреть строго вниз
@@ -431,7 +440,7 @@ R3.init = function(canvas){
   // Свет один на всё: при виде почти сверху ключевой свет стоит ниже и сбоку — округлые формы получают градиент, а не плоскую заливку
   // v2.0 стиль A: ключ белый сверху-слева, контровой холодный сзади-сверху (кромки металла и плит светятся на тёмном небе), второй
   // контровой фиолетовый с другой стороны; небо-полушарие слабее — тёмный металл остаётся тёмным
-  if (R3.epic) R3.epic.lights(scene);
+  if (LOOK()) LOOK().lights(scene);
   else {
   scene.add(new T.HemisphereLight(PAL.hemiSky, PAL.hemiGround, 0.75));
   const key = new T.DirectionalLight(PAL.key, 2.2); key.position.set(-6, 8, 5); scene.add(key);
@@ -439,10 +448,10 @@ R3.init = function(canvas){
   const rim2 = new T.DirectionalLight(PAL.rim2, 0.9); rim2.position.set(-7, 3, -4); scene.add(rim2);
   }
   R3.EN = new T.Color('#3fe6ff');
-  if (R3.epic) R3.epic.arts();                                            // проба: модели пробы поверх ART (общие модули, ядро, швы — под теми же именами)
+  if (LOOK()) LOOK().arts();                                            // проба: модели пробы поверх ART (общие модули, ядро, швы — под теми же именами)
   for (const n of Object.keys(ART)) modelOf(n);
   for (const n of ['habQ', 'panQ', 'trussQ']){ modelOf(n, 'ghost'); modelOf(n, 'holo'); }
-  if (R3.epic) for (const n of R3.epic.ghosts || []){ modelOf(n, 'ghost'); modelOf(n, 'holo'); }   // готовая деталь под пальцем и в шлейфе
+  if (LOOK()) for (const n of LOOK().ghosts || []){ modelOf(n, 'ghost'); modelOf(n, 'holo'); }   // готовая деталь под пальцем и в шлейфе
   for (const n of ['shadow', 'glow', 'ring', 'bpHull', 'bpSolar', 'bpTruss']) quadOf(n);
   R3.ready = true; return true;
 };
