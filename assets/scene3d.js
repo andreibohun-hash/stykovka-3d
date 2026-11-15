@@ -9,13 +9,13 @@
 (function(){
 'use strict';
 const T = window.THREE;
-// Палитра сцены — направление A «Студийная игрушка» (art-src/mock-a-studio.png); арт-библия — DESIGN.md
+// Палитра сцены — v2.0 стиль A «Тёмный металл и свет» (art-src/ships/A-*.jpg): графитовый металл с фасками, белые бронеплиты,
+// золотые панели, оранжевые фермы, энергия — бирюзовые линии. Арт-библия — DESIGN.md «v2.0».
 const PAL = {
-  white: '#f4f1fb', whiteSh: '#d9d3ee', orange: '#ff8a1f', orangeDeep: '#e2620c', gold: '#ffc130', goldDeep: '#d98a12',
-  cell: '#1d4fd8', cellLine: '#7fb0ff', chrome: '#dfe6f5', steel: '#6d7393', teal: '#1fd1bd', tealDeep: '#0e7f8f',
-  rock: '#a084e8', rockDeep: '#5d4f8e', navy: '#202a66', violet: '#8a4dff', dark: '#14183a', red: '#ff5a5a',
-  board: '#161d48', boardRim: '#3d4fa8', tile: '#1f2859', pad: '#28316a', padRim: '#5a70d6',
-  hemiSky: '#e6ebff', hemiGround: '#2a2350', key: '#fff1dd', rim: '#8f7bff',
+  graph: '#3a4357', graphDeep: '#1e2331', graphLite: '#4a5468', armor: '#dfe5f0', armorSh: '#aeb8cb', steel: '#69728a', steelDark: '#2a2f3d',
+  gold: '#ffb72e', goldDeep: '#d07c10', orange: '#ff7a1a', orangeDeep: '#c4510c', glass: '#2a63d8',
+  white: '#f4f1fb', chrome: '#dfe6f5', teal: '#1fd1bd', tealDeep: '#0e7f8f', rock: '#8f7ac8', rockDeep: '#4d4378', navy: '#202a66', violet: '#8a4dff', dark: '#14183a',
+  hemiSky: '#c9d3ff', hemiGround: '#1a1730', key: '#f3f5ff', rim: '#7fb8ff', rim2: '#b48cff',
   bpHull: '#46e6ff', bpSolar: '#ffd23d', bpTruss: '#ff9a3d', holo: '#5fe8ff',
 };
 const SH = {                    // числа вида (в клетках)
@@ -26,7 +26,7 @@ const SH = {                    // числа вида (в клетках)
 };
 // Для сравнения кадров вид можно переопределить в адресе: ?pitch=90&fov=20 (в игре не используется)
 try { const q = new URLSearchParams(location.search); if (+q.get('pitch')) SH.PITCH = +q.get('pitch'); if (+q.get('fov')) SH.FOV = +q.get('fov'); } catch (e) {}
-const R3 = window.R3 = { ready: false, PAL, SH, BOARD_PAD: 0.08, stats: { calls: 0, tris: 0 } };   // BOARD_PAD — поле вокруг клеток в рамке камеры (v1.2: доски нет, запас только под узлы сетки)
+const R3 = window.R3 = { ready: false, PAL, SH, EN: null, BOARD_PAD: 0.08, stats: { calls: 0, tris: 0 } };   // BOARD_PAD — поле вокруг клеток в рамке камеры (v1.2: доски нет, запас только под узлы сетки)
 let renderer = null, scene, cam, cw = 0, chh = 0, dpr = 1, envTex = null;
 const tmpM = new T.Matrix4(), tmpQ = new T.Quaternion(), tmpE = new T.Euler(), tmpV = new T.Vector3(), tmpS = new T.Vector3(), tmpC = new T.Color();
 const WHITE = new T.Color(1, 1, 1);
@@ -48,6 +48,28 @@ const cylX = (r0, r1, h, n) => { const g = new T.CylinderGeometry(r1, r0, h, n |
 const torusX = (R, r, n, arc) => { const g = new T.TorusGeometry(R, r, 8, n || 24, arc); g.rotateY(Math.PI / 2); return g; };     // кольцо вокруг оси X
 const torusY = (R, r, n, arc) => { const g = new T.TorusGeometry(R, r, 8, n || 28, arc); g.rotateX(Math.PI / 2); return g; };     // кольцо вокруг оси Y (лежит)
 const sph = (r, n) => new T.SphereGeometry(r, n || 14, Math.max(6, (n || 14) >> 1));
+// Призма: многоугольник pts [[x, z]…] в плоскости XZ, высота h по Y (центр по высоте в нуле), фаска bev (одна грань — «машинная»)
+function prism(pts, h, bev){
+  bev = bev || 0; const s = new T.Shape();
+  pts.forEach(([x, z], k) => k ? s.lineTo(x, -z) : s.moveTo(x, -z));
+  const g = new T.ExtrudeGeometry(s, { depth: Math.max(1e-3, h - 2 * bev), bevelEnabled: bev > 0, bevelThickness: bev, bevelSize: bev, bevelSegments: 1, curveSegments: 1 });
+  g.translate(0, 0, -(h - 2 * bev) / 2); g.rotateX(-Math.PI / 2); return g;
+}
+// Плита с прямыми фасками углов (восьмиугольник) w×d, высота h, срез угла c, кромка bev — основа всех модулей стиля A
+function chamf(w, d, h, c, bev){
+  bev = bev === undefined ? 0.02 : bev; const x = w / 2 - bev, z = d / 2 - bev; c = Math.min(c, x * 0.9, z * 0.9);
+  return prism([[-x + c, -z], [x - c, -z], [x, -z + c], [x, z - c], [x - c, z], [-x + c, z], [-x, z - c], [-x, -z + c]], h, bev);
+}
+// Зеркальная копия деталей по Z (левое крыло из правого): матрица детали применяется к геометрии, Z отражается, обход треугольников разворачивается
+function mirZ(parts){
+  const m = new T.Matrix4(), e = new T.Euler(), q = new T.Quaternion(), one = new T.Vector3(1, 1, 1), v = new T.Vector3();
+  return parts.map(p => { const g = p.geo.index ? p.geo.toNonIndexed() : p.geo.clone();
+    m.compose(v.set(...p.pos), q.setFromEuler(e.set(...p.rot)), one); g.applyMatrix4(m);
+    const a = g.attributes.position, n = g.attributes.normal;
+    for (let k = 0; k < a.count; k++){ a.setZ(k, -a.getZ(k)); n.setZ(k, -n.getZ(k)); }
+    for (let k = 0; k + 2 < a.count; k += 3) for (const at of [a, n]){ const t = [at.getX(k + 1), at.getY(k + 1), at.getZ(k + 1)]; at.setXYZ(k + 1, at.getX(k + 2), at.getY(k + 2), at.getZ(k + 2)); at.setXYZ(k + 2, ...t); }
+    return { geo: g, col: p.col, pos: [0, 0, 0], rot: [0, 0, 0], grp: p.grp }; });
+}
 // Деталь: геометрия, цвет, позиция, поворот (эйлер XYZ), группа материала
 function P(geo, col, pos, rot, grp){ return { geo, col, pos: pos || [0, 0, 0], rot: rot || [0, 0, 0], grp: grp || 'body' }; }
 // Слить детали в одну геометрию с цветом вершин (Color.set переводит sRGB → linear один раз)
@@ -66,110 +88,157 @@ function merge(parts){
   return out;
 }
 
-// ---------- модели (1 = клетка; +X — нос/ось стыковки; Y — вверх, низ модуля у y ≈ 0.01) ----------
-// v1.1 «чище»: камера почти сверху, поэтому форма читается сверху — крупные детали, по одному акценту на модуль,
-// мелочь, которую сверху не видно (боковые иллюминаторы, шарниры, раскосы по бокам фермы), убрана.
-const Y = SH.Y;
-const port = (x) => P(cylX(0.17, 0.17, 0.08, 20), PAL.chrome, [x, Y, 0], null, 'metal');
+// ---------- модели (1 = клетка; +X — нос/ось стыковки; +Z — правый борт; Y — вверх, низ модуля у y ≈ 0.14) ----------
+// v2.0 стиль A: графитовая плита с фасками (hull), белые бронеплиты (body), золотые панели и оранжевые фермы (panel — с тёплым
+// самосвечением), стекло кабины и купола (glass), окна-статус (lamp: холодные в очереди, зелёные на питании — цвет задаёт игра),
+// энергия (energy: бирюзовые линии и порты — яркость задаёт игра, бежит от ядра). Модуль в очереди и в полёте — «общий» по типу
+// (*Q); пристыкованный раскрывается в роль: основа роли (r*) на клетке + выдвижная часть (r*-ext), которую игра анимирует (u 0..1).
+// Роль выходит за клетку (нос, сопло, крыло, ствол — до +0,45 клетки) только в пустую сторону — так корабль не читается плиткой.
+const Y = SH.Y, TOP = Y + 0.18;
+const nubs = (r, sz) => [[r, 0, 0], [-r, 0, 0], [0, 0, r], [0, 0, -r]].map(([x, , z]) => P(rbox(x ? 0.06 : sz || 0.16, 0.08, x ? sz || 0.16 : 0.06, 0.02), '#ffffff', [x, Y, z], null, 'energy'));
+const plates = (x0, len, z, w, y) => [-1, 1].map(sg => P(chamf(len, w, 0.08, 0.1, 0.015), PAL.armor, [x0, y || TOP + 0.02, sg * z], null, 'body'));
+const wingShape = (S, tip) => tip ? [[0.44, 0], [0.02, S], [-0.36, S], [-0.46, 0]] : [[0.44, 0], [0.42, S], [-0.44, S], [-0.46, 0]];
+function wingParts(S, tip){
+  const k = 0.08, inner = wingShape(S, tip).map(([x, z], i) => [x + (i === 0 || i === 3 ? (x > 0 ? -k : k) : (x > 0 ? -k * 0.7 : k)), z + (i < 1 || i > 2 ? k : -k)]);
+  return [P(prism(wingShape(S, tip), 0.09, 0.015), PAL.graph, [0, Y - 0.02, 0], null, 'hull'),
+    P(prism(inner, 0.05), PAL.gold, [0, Y + 0.035, 0], null, 'panel'),
+    P(rbox(0.86, 0.02, 0.035, 0.01), PAL.graphDeep, [tip ? -0.13 : -0.01, Y + 0.065, S * 0.5], [0, tip ? 0.27 : 0, 0], 'hull'),
+    P(rbox(0.05, 0.03, 0.28, 0.012), '#ffffff', [tip ? -0.3 : -0.42, Y + 0.05, S * 0.62], null, 'energy')];
+}
 const ART = {
-  // Жилая капсула: пухлая, лежит вдоль курса; два широких оранжевых пояса и одно большое окно сверху (lamp: свет задаёт игра)
-  hull: () => [
-    P((() => { const g = new T.CapsuleGeometry(0.31, 0.24, 8, 24); g.rotateZ(Math.PI / 2); return g; })(), PAL.white, [0, Y, 0]),
-    P(torusX(0.297, 0.045, 28), PAL.orange, [0.215, Y, 0]), P(torusX(0.297, 0.045, 28), PAL.orange, [-0.215, Y, 0]),
-    port(0.44), port(-0.44),
-    P((() => { const g = new T.SphereGeometry(0.15, 24, 8, 0, Math.PI * 2, 0, Math.PI / 2); g.scale(1, 0.55, 1); return g; })(), '#ffffff', [0, Y + 0.27, 0], null, 'lamp'),
-    P(torusY(0.155, 0.032, 28), PAL.chrome, [0, Y + 0.285, 0], null, 'metal'),
-  ],
-  // Сопло — отдельно: видно у модуля в очереди и в полёте
-  nozzle: () => [P(cylX(0.17, 0.1, 0.14, 18), PAL.steel, [-0.07, 0, 0], null, 'metal'), P(cylX(0.12, 0.12, 0.02, 18), PAL.dark, [-0.145, 0, 0])],
-  // Солнечная панель: хаб (белый брусок с портами и лампой) + два крыла на шарнирах (крылья — отдельная модель, игра их раскрывает)
-  solarHub: () => [
-    P(rbox(0.58, 0.34, 0.36, 0.11, 3), PAL.white, [0, Y, 0]),
-    port(0.33), port(-0.33),
-    P(cyl(0.1, 0.04, 22), '#ffffff', [0, Y + 0.18, 0], null, 'lamp'),
-    P(torusY(0.106, 0.025, 22), PAL.chrome, [0, Y + 0.185, 0], null, 'metal'),
-  ],
-  // Крыло: шарнир в нуле, крыло уходит в +Z на 0.36; толстая золотая рама, две большие синие ячейки (видны с обеих сторон:
-  // в очереди крылья сложены стопкой на хабе ячейками вниз — сверху читается «синяя панель в золотой раме»)
-  solarWing: () => [
-    P(rbox(0.6, 0.05, 0.37, 0.02), PAL.gold, [0, 0, 0.195], null, 'metal'),
-    ...[-0.14, 0.14].map(x => P(rbox(0.24, 0.066, 0.275, 0.016), PAL.cell, [x, 0, 0.195], null, 'glass')),
-  ],
-  // Ферма на 2 клетки: две толстые балки сверху, три крупных креста между ними, торцы-узлы с лампой и портами
-  truss: () => {
-    const L = 1.86, h = L / 2, inner = h - 0.22, parts = [];
-    for (const z of [-0.17, 0.17]){
-      parts.push(P(rbox(L - 0.3, 0.1, 0.1, 0.035), PAL.orange, [0, Y + 0.13, z]));
-      parts.push(P(rbox(L - 0.3, 0.08, 0.08, 0.03), PAL.orangeDeep, [0, Y - 0.14, z]));
-    }
-    const n = 3, dx = 2 * inner / n, len = Math.hypot(dx, 0.34), a = Math.atan2(0.34, dx);
-    for (let k = 0; k < n; k++) for (const s of [-1, 1]) parts.push(P(rbox(len, 0.07, 0.075, 0.025), PAL.gold, [-inner + dx * (k + 0.5), Y + 0.13, 0], [0, s * a, 0]));
-    for (const s of [-1, 1]){
-      parts.push(P(rbox(0.26, 0.46, 0.52, 0.09), PAL.orange, [s * (h - 0.13), Y, 0]));
-      parts.push(P(cyl(0.085, 0.04, 18), '#ffffff', [s * (h - 0.13), Y + 0.24, 0], null, 'lamp'));
-      parts.push(port(s * h));
-    }
-    return parts;
-  },
-  // Ядро: бирюзовый шестигранник на хромовом основании, светящаяся крышка (кольцо над ним — отдельная модель, вращается)
-  core: () => [
-    P(cyl(0.48, 0.12, 6), PAL.chrome, [0, 0.08, 0], [0, Math.PI / 6, 0], 'metal'),
-    P(cyl(0.43, 0.42, 6), PAL.tealDeep, [0, 0.33, 0], [0, Math.PI / 6, 0]),
-    P(cyl(0.37, 0.06, 6), PAL.teal, [0, 0.56, 0], [0, Math.PI / 6, 0], 'lamp'),
-    P(cyl(0.15, 0.08, 24), '#ffffff', [0, 0.6, 0], null, 'lamp'),
-    ...[0, 1, 2, 3].map(k => P(cylX(0.14, 0.14, 0.1, 18), PAL.chrome, [Math.cos(k * Math.PI / 2) * 0.44, Y, Math.sin(k * Math.PI / 2) * 0.44], [0, -k * Math.PI / 2, 0], 'metal')),
-  ],
-  coreRing: () => [0, 1, 2].map(k => P(new T.TorusGeometry(0.29, 0.04, 8, 18, 1.6), '#ffffff', [0, 0.72, 0], [Math.PI / 2, 0, k * 2.094], 'lamp')),
+  // ---- общие модули (очередь, полёт, до раскрытия) ----
+  // Жилой: восьмигранная графитовая плита, белые плиты спереди и сзади, два окна посередине, бирюзовые порты на 4 стороны
+  habQ: () => [P(chamf(0.86, 0.86, 0.36, 0.22, 0.03), PAL.graph, [0, Y, 0], null, 'hull'),
+    ...[-1, 1].map(sg => P(chamf(0.22, 0.64, 0.08, 0.08, 0.015), PAL.armor, [sg * 0.25, TOP + 0.02, 0], null, 'body')),
+    ...[-1, 1].map(sg => P(rbox(0.13, 0.04, 0.16, 0.02), '#ffffff', [0, TOP + 0.01, sg * 0.1], null, 'lamp')), ...nubs(0.45)],
+  // Панель (сложена): графитовая рама, две золотые панели вдоль курса
+  panQ: () => [P(chamf(0.84, 0.84, 0.28, 0.2, 0.03), PAL.graph, [0, Y - 0.03, 0], null, 'hull'),
+    ...[-1, 1].map(sg => P(chamf(0.62, 0.25, 0.06, 0.08, 0.012), PAL.gold, [0, Y + 0.12, sg * 0.15], null, 'panel')),
+    P(rbox(0.1, 0.04, 0.1, 0.02), '#ffffff', [0, Y + 0.12, 0], null, 'lamp'), ...nubs(0.44)],
+  // Ферма (2 клетки, складывается): торцы-узлы, две оранжевые балки, кресты
+  trussQ: () => { const L = 1.86, h = L / 2, parts = [];
+    for (const sg of [-1, 1]){ parts.push(P(chamf(0.3, 0.62, 0.42, 0.1, 0.025), PAL.graph, [sg * (h - 0.16), Y, 0], null, 'hull'), P(chamf(0.18, 0.4, 0.06, 0.05, 0.012), PAL.armor, [sg * (h - 0.16), Y + 0.23, 0], null, 'body'),
+      P(rbox(0.06, 0.08, 0.16, 0.02), '#ffffff', [sg * h, Y, 0], null, 'energy')); }
+    for (const z of [-0.22, 0.22]) parts.push(P(rbox(L - 0.5, 0.09, 0.09, 0.03), PAL.orange, [0, Y + 0.13, z], null, 'panel'), P(rbox(L - 0.5, 0.07, 0.07, 0.025), PAL.orangeDeep, [0, Y - 0.12, z], null, 'panel'));
+    const n = 2, inner = h - 0.32, dx = 2 * inner / n, len = Math.hypot(dx, 0.44), a = Math.atan2(0.44, dx);
+    for (let k = 0; k < n; k++) for (const sg of [-1, 1]) parts.push(P(rbox(len, 0.07, 0.07, 0.025), PAL.orange, [-inner + dx * (k + 0.5), Y + 0.13, 0], [0, sg * a, 0], 'panel'));
+    return parts; },
+  // ---- ядро: реактор/мостик — графитовый шестигранник, белое кольцо плит, бирюзовое сердце, энергия по ободу ----
+  core: () => [P(cyl(0.5, 0.4, 6), PAL.graph, [0, Y, 0], [0, Math.PI / 6, 0], 'hull'),
+    P(cyl(0.47, 0.08, 6), PAL.armor, [0, Y + 0.2, 0], [0, Math.PI / 6, 0], 'body'),
+    P(cyl(0.34, 0.1, 6), PAL.graphDeep, [0, Y + 0.23, 0], [0, Math.PI / 6, 0], 'hull'),
+    P(cyl(0.22, 0.05, 24), '#ffffff', [0, Y + 0.28, 0], null, 'lamp'),
+    P(torusY(0.285, 0.022, 30), '#ffffff', [0, Y + 0.27, 0], null, 'energy'),
+    ...[0, 1, 2, 3].map(k => P(rbox(k % 2 ? 0.08 : 0.2, 0.1, k % 2 ? 0.2 : 0.08, 0.025), '#ffffff', [Math.cos(k * Math.PI / 2) * 0.47, Y, Math.sin(k * Math.PI / 2) * 0.47], null, 'energy'))],
+  coreRing: () => [0, 1, 2].map(k => P(new T.TorusGeometry(0.16, 0.025, 6, 14, 1.5), '#ffffff', [0, Y + 0.34, 0], [Math.PI / 2, 0, k * 2.094], 'lamp')),
+  // ---- роли жилого ----
+  // Кабина: основа (плита, бортовые плиты, окно-статус сзади) + нос (rKnose): белый клин и стекло, выдвигается вперёд
+  rK: () => [P(chamf(0.92, 0.92, 0.36, 0.26, 0.03), PAL.graph, [-0.03, Y, 0], null, 'hull'), ...plates(-0.1, 0.6, 0.31, 0.24),
+    P(rbox(0.09, 0.04, 0.3, 0.02), '#ffffff', [-0.33, TOP + 0.01, 0], null, 'lamp'), P(rbox(0.12, 0.08, 0.06, 0.02), '#ffffff', [-0.46, Y, 0], null, 'energy')],
+  rKnose: () => [P(prism([[0.0, -0.37], [0.44, -0.3], [0.9, -0.02], [0.9, 0.02], [0.44, 0.3], [0.0, 0.37]], 0.3, 0.02), PAL.armor, [0, Y - 0.02, 0], null, 'body'),
+    P(prism([[0.1, -0.2], [0.5, -0.15], [0.74, 0], [0.5, 0.15], [0.1, 0.2]], 0.08, 0.01), PAL.graphDeep, [0, Y + 0.15, 0], null, 'hull'),
+    P((() => { const g = sph(0.5, 18); g.scale(0.62, 0.3, 0.3); return g; })(), PAL.glass, [0.34, Y + 0.16, 0], null, 'glass'),
+    P(rbox(0.07, 0.05, 0.05, 0.02), '#ffffff', [0.86, Y + 0.02, 0], null, 'energy')],
+  // Отсек корпуса: широкая плита (закрывает швы), бортовые плиты, два окна вдоль оси
+  rH: () => [P(chamf(0.98, 0.98, 0.36, 0.16, 0.03), PAL.graph, [0, Y, 0], null, 'hull'), ...plates(0, 0.94, 0.31, 0.26),
+    ...[-1, 1].map(sg => P(rbox(0.3, 0.04, 0.07, 0.02), '#ffffff', [0, TOP + 0.01, sg * 0.12], null, 'lamp')), ...nubs(0.48, 0.12)],
+  // Купол-сенсор: плита с белым восьмигранником + купол (rDdome): стекло, зелёное кольцо, мачта с огнём — вращается
+  rD: () => [P(chamf(0.86, 0.86, 0.32, 0.28, 0.03), PAL.graph, [0, Y - 0.02, 0], null, 'hull'), P(cyl(0.4, 0.06, 8), PAL.armor, [0, TOP, 0], [0, Math.PI / 8, 0], 'body'), ...nubs(0.44, 0.12)],
+  rDdome: () => [P((() => { const g = new T.SphereGeometry(0.27, 20, 8, 0, Math.PI * 2, 0, Math.PI / 2); g.scale(1, 0.8, 1); return g; })(), PAL.glass, [0, TOP + 0.02, 0], null, 'glass'),
+    P(torusY(0.29, 0.03, 26), '#ffffff', [0, TOP + 0.04, 0], null, 'lamp'),
+    P(cyl(0.025, 0.2, 6), PAL.steel, [0.17, TOP + 0.22, 0], [0, 0, 0.5], 'metal'), P(sph(0.045, 8), '#ffffff', [0.22, TOP + 0.31, 0], null, 'energy')],
+  // Двигатель: корпус (плиты по бортам, огонь-статус спереди) + сопло (rEnoz): кожух, колокол за клетку, бирюзовое свечение
+  rE: () => [P(chamf(0.9, 0.9, 0.36, 0.24, 0.03), PAL.graph, [0.02, Y, 0], null, 'hull'), ...plates(0.06, 0.62, 0.31, 0.24),
+    P(rbox(0.08, 0.04, 0.26, 0.02), '#ffffff', [0.3, TOP + 0.01, 0], null, 'lamp'), P(rbox(0.12, 0.08, 0.06, 0.02), '#ffffff', [0.46, Y, 0], null, 'energy')],
+  rEnoz: () => [P(cylX(0.27, 0.27, 0.16, 16), PAL.graphLite, [-0.38, Y, 0], null, 'hull'),
+    P(cylX(0.31, 0.22, 0.3, 18), PAL.steel, [-0.6, Y, 0], null, 'metal'), P(torusX(0.27, 0.025, 18), PAL.armor, [-0.47, Y, 0], null, 'body'),
+    P(cylX(0.24, 0.24, 0.02, 18), '#ffffff', [-0.755, Y, 0], null, 'energy')],
+  // ---- роли панели ----
+  rWroot: () => [P(chamf(0.6, 0.3, 0.3, 0.1, 0.02), PAL.graph, [0, Y, 0], null, 'hull'), P(rbox(0.36, 0.04, 0.08, 0.02), '#ffffff', [0, Y + 0.16, 0], null, 'lamp')],
+  rWR: () => wingParts(1.34, true), rWRi: () => wingParts(0.92, false),
+  rWL: () => mirZ(wingParts(1.34, true)), rWLi: () => mirZ(wingParts(0.92, false)),
+  // Радиатор: плита + три светящихся ребра (rRfins), раздвигаются
+  rR: () => [P(chamf(0.86, 0.86, 0.26, 0.2, 0.03), PAL.graph, [0, Y - 0.04, 0], null, 'hull'), P(rbox(0.1, 0.04, 0.1, 0.02), '#ffffff', [0.32, Y + 0.11, 0], null, 'lamp'), ...nubs(0.44, 0.12)],
+  rRfins: () => [-0.24, 0, 0.24].map(z => P(prism([[-0.34, -0.035], [0.3, -0.035], [0.38, 0.035], [-0.34, 0.035]], 0.2, 0.012), PAL.gold, [0, Y + 0.1, z], null, 'panel')),
+  // Антенна / щит: плита + золотая тарелка на мачте (rAdish), поднимается
+  rA: () => [P(chamf(0.86, 0.86, 0.26, 0.24, 0.03), PAL.graph, [0, Y - 0.04, 0], null, 'hull'), P(cyl(0.34, 0.05, 8), PAL.armor, [0, Y + 0.1, 0], [0, Math.PI / 8, 0], 'body'), ...nubs(0.44, 0.12)],
+  rAdish: () => [P(cyl(0.035, 0.22, 6), PAL.steel, [0, Y + 0.22, 0], null, 'metal'),
+    P((() => { const g = new T.SphereGeometry(0.34, 20, 6, 0, Math.PI * 2, 0, 0.9); g.scale(1, 0.42, 1); g.rotateX(Math.PI); return g; })(), PAL.gold, [0, Y + 0.44, 0], null, 'panel'),
+    P(sph(0.05, 8), '#ffffff', [0, Y + 0.42, 0], null, 'energy')],
+  // Энергоплита: плита, золотая панель, энергия по кромке
+  rP: () => [P(chamf(0.96, 0.96, 0.26, 0.2, 0.03), PAL.graph, [0, Y - 0.04, 0], null, 'hull'), P(chamf(0.68, 0.68, 0.06, 0.16, 0.012), PAL.gold, [0, Y + 0.11, 0], null, 'panel'),
+    ...[[0, -0.39, 0.6, 0.03], [0, 0.39, 0.6, 0.03], [-0.39, 0, 0.03, 0.6], [0.39, 0, 0.03, 0.6]].map(([x, z, w, d]) => P(rbox(w, 0.03, d, 0.01), '#ffffff', [x, Y + 0.1, z], null, 'energy'))],
+  // ---- роли фермы (2 клетки, +X — к носу для продольных, наружу для поперечных) ----
+  rT: () => { const L = 1.86, h = L / 2, parts = [];
+    for (const sg of [-1, 1]) parts.push(P(chamf(0.32, 0.68, 0.4, 0.12, 0.025), PAL.graph, [sg * (h - 0.16), Y, 0], null, 'hull'), ...[-1, 1].map(z => P(chamf(0.22, 0.16, 0.06, 0.05, 0.012), PAL.armor, [sg * (h - 0.16), TOP + 0.04, z * 0.2], null, 'body')));
+    for (const z of [-0.25, 0.25]) parts.push(P(rbox(L - 0.5, 0.09, 0.09, 0.03), PAL.orange, [0, Y + 0.13, z], null, 'panel'), P(rbox(L - 0.5, 0.07, 0.07, 0.025), PAL.orangeDeep, [0, Y - 0.12, z], null, 'panel'));
+    const n = 2, inner = h - 0.32, dx = 2 * inner / n, len = Math.hypot(dx, 0.5), a = Math.atan2(0.5, dx);
+    for (let k = 0; k < n; k++) for (const sg of [-1, 1]) parts.push(P(rbox(len, 0.07, 0.07, 0.025), PAL.orange, [-inner + dx * (k + 0.5), Y + 0.13, 0], [0, sg * a, 0], 'panel'));
+    parts.push(P(rbox(L - 0.1, 0.03, 0.05, 0.012), '#ffffff', [0, Y + 0.2, 0], null, 'energy'));
+    return parts; },
+  // Ускоритель: сердечник въезжает внутрь фермы, сопло сзади за клетку
+  rTB: () => [P(cylX(0.22, 0.22, 1.0, 14), PAL.steel, [-0.05, Y, 0], null, 'metal'), ...[-0.3, 0.2].map(x => P(cylX(0.24, 0.24, 0.08, 14), PAL.armor, [x, Y, 0], null, 'body')),
+    P(chamf(0.24, 0.74, 0.42, 0.14, 0.025), PAL.graphLite, [-0.86, Y, 0], null, 'hull'),
+    P(cylX(0.36, 0.24, 0.32, 16), PAL.steel, [-1.05, Y, 0], null, 'metal'), P(cylX(0.29, 0.29, 0.02, 16), '#ffffff', [-1.21, Y, 0], null, 'energy')],
+  // Таран: белый наконечник с прожектором на переднем конце
+  rTL: () => [P(prism([[0.8, -0.3], [1.1, -0.12], [1.22, 0], [1.1, 0.12], [0.8, 0.3]], 0.26, 0.02), PAL.armor, [0, Y, 0], null, 'body'), P(sph(0.07, 10), '#ffffff', [1.18, Y + 0.08, 0], null, 'energy')],
+  // Пилон с орудием: ствол на внешнем конце, выезжает
+  rTX: () => [P(chamf(0.44, 0.56, 0.36, 0.14, 0.025), PAL.graphLite, [0.84, Y + 0.03, 0], null, 'hull'), P(chamf(0.3, 0.36, 0.06, 0.1, 0.012), PAL.armor, [0.84, Y + 0.22, 0], null, 'body'),
+    P(cylX(0.1, 0.1, 0.5, 12), PAL.steel, [1.12, Y + 0.05, 0], null, 'metal'), P(cylX(0.12, 0.12, 0.06, 12), PAL.armor, [1.36, Y + 0.05, 0], null, 'body'),
+    P(rbox(0.05, 0.05, 0.05, 0.02), '#ffffff', [1.39, Y + 0.05, 0], null, 'energy')],
+  // Связь между соседями станции: тёмная перемычка на шве + энергия от центра клетки к центру соседа (яркость бежит от ядра)
+  conduit: () => [P(chamf(0.3, 0.6, 0.28, 0.1, 0.02), PAL.graphDeep, [0, Y, 0], null, 'hull'), P(rbox(1.0, 0.025, 0.05, 0.012), '#ffffff', [0, TOP + 0.025, 0], null, 'energy')],
+  seam: () => [P(chamf(0.3, 0.6, 0.28, 0.1, 0.02), PAL.graphDeep, [0, Y, 0], null, 'hull')],                                   // перемычка без энергии (шов вне дерева энергии)
+  // ---- препятствия, полёт, служебное ----
   rock: () => { const g = new T.IcosahedronGeometry(0.38, 1), a = g.attributes.position, v = new T.Vector3();
     for (let k = 0; k < a.count; k++){ v.fromBufferAttribute(a, k); const n = 0.8 + 0.2 * Math.abs(Math.sin(v.x * 9.1 + v.y * 7.3 + v.z * 5.7)); a.setXYZ(k, v.x * n, v.y * n * 0.85, v.z * n); }
     g.computeVertexNormals(); return [P(g, PAL.rock, [0, 0.31, 0], null, 'rock')]; },
-  // Отражатель: шестигранная площадка с золотым ободом и светлая призма-«конёк» по диагонали со светящимся гребнем (сверху читается как диагональная черта);
-  // на концах — золотые шары. Поворот задаёт игра.
+  // Отражатель: графитовая шестигранная площадка с золотым ободом, светлая призма по диагонали со светящимся гребнем
   mirror: () => { const s = new T.Shape(); s.moveTo(-0.13, 0); s.lineTo(0.13, 0); s.lineTo(0, 0.4); s.lineTo(-0.13, 0);
     const g = new T.ExtrudeGeometry(s, { depth: 0.8, bevelEnabled: false }); g.translate(0, 0, -0.4); g.rotateY(Math.PI / 2);
-    return [P(cyl(0.44, 0.08, 6), PAL.navy, [0, 0.04, 0], [0, Math.PI / 6, 0]),
-      P(new T.TorusGeometry(0.42, 0.035, 6, 6), PAL.gold, [0, 0.085, 0], [Math.PI / 2, 0, Math.PI / 6]),
-      P(g, '#cfe0ff', [0, 0.08, 0]), P(rbox(0.8, 0.035, 0.05, 0.015), '#ffffff', [0, 0.485, 0], null, 'lamp'),
+    return [P(cyl(0.44, 0.08, 6), PAL.graph, [0, 0.04, 0], [0, Math.PI / 6, 0], 'hull'),
+      P(new T.TorusGeometry(0.42, 0.035, 6, 6), PAL.gold, [0, 0.085, 0], [Math.PI / 2, 0, Math.PI / 6], 'metal'),
+      P(g, PAL.armor, [0, 0.08, 0], null, 'body'), P(rbox(0.8, 0.035, 0.05, 0.015), '#ffffff', [0, 0.485, 0], null, 'lamp'),
       ...[-0.42, 0.42].map(x => P(sph(0.1, 16), PAL.gold, [x, 0.2, 0], null, 'metal'))]; },
-  // Силовое поле: светящийся куб (аддитивно, цвет и мерцание — цвет инстанса) между двумя излучателями
   field: () => [P(rbox(0.78, 0.5, 0.78, 0.12, 2), '#ffffff', [0, 0.28, 0], null, 'add')],
-  emitter: () => [P(rbox(0.14, 0.56, 0.14, 0.05), PAL.violet, [0, 0.28, 0]), P(sph(0.085, 12), '#ffffff', [0, 0.6, 0], null, 'lamp'), P(cyl(0.11, 0.06, 14), PAL.chrome, [0, 0.03, 0], null, 'metal')],
-  // муфта длиной 0.46: сбоку доходит до корпуса капсулы, вдоль оси уходит в порт
-  collar: () => [P(cylX(0.13, 0.13, 0.46, 20), PAL.chrome, [0, Y, 0], null, 'metal'), P(torusX(0.14, 0.035, 20), PAL.orange, [0, Y, 0])],
-  // Палец защёлки: шарнир в нуле, палец вдоль +X (игра поворачивает: открыт — торчит наружу, закрыт — лёг поперёк шва)
-  claw: () => [P(rbox(0.24, 0.06, 0.08, 0.02), PAL.chrome, [0.1, 0, 0], null, 'metal'), P(rbox(0.06, 0.09, 0.09, 0.02), PAL.orange, [0.22, -0.03, 0])],
-  // Детали вида объекта: стоят у края клетки, +X смотрит наружу
-  nose: () => [P(cylX(0.29, 0.0, 0.5, 24), PAL.white, [0.25, Y, 0]), P(torusX(0.28, 0.035, 24), PAL.orange, [0.03, Y, 0]), P(sph(0.06, 10), PAL.orange, [0.5, Y, 0])],
-  engine: () => [P(cylX(0.13, 0.26, 0.3, 22), PAL.steel, [0.15, Y, 0], null, 'metal'), P(cylX(0.21, 0.21, 0.02, 22), PAL.dark, [0.3, Y, 0]), P(torusX(0.14, 0.035, 20), PAL.orange, [0.02, Y, 0])],
-  fin: () => { const s = new T.Shape(); s.moveTo(0, -0.05); s.lineTo(0.42, -0.2); s.lineTo(0.42, 0.02); s.lineTo(0, 0.32); s.lineTo(0, -0.05);
-    const g = new T.ExtrudeGeometry(s, { depth: 0.1, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 2 }); g.translate(0, 0, -0.05);
-    return [P(g, PAL.orange, [0, Y, 0])]; },
-  dish: () => [P(cyl(0.04, 0.3, 8), PAL.chrome, [0.1, Y + 0.25, 0], null, 'metal'),
-    P((() => { const g = new T.SphereGeometry(0.28, 22, 8, 0, Math.PI * 2, 0, 0.95); g.scale(1, 0.55, 1); g.rotateZ(-0.6); return g; })(), PAL.white, [0.14, Y + 0.38, 0]),
-    P(sph(0.055, 10), PAL.orange, [0.22, Y + 0.46, 0])],
-  mast: () => [P(cyl(0.03, 0.55, 8), PAL.chrome, [0.18, Y + 0.12, 0], [0, 0, -0.9], 'metal'), P(sph(0.075, 12), '#ffffff', [0.4, Y + 0.28, 0], null, 'lamp'), P(cylX(0.09, 0.09, 0.06, 12), PAL.chrome, [0.02, Y, 0], null, 'metal')],
-  leg: () => [P(cyl(0.04, 0.5, 8), PAL.chrome, [0.18, 0.18, 0], [0, 0, 0.75], 'metal'), P(cyl(0.13, 0.04, 16), PAL.orange, [0.36, 0.02, 0]), P(cylX(0.09, 0.09, 0.06, 12), PAL.chrome, [0.02, Y, 0], null, 'metal')],
-  ringDeco: () => [P(torusY(1.42, 0.07, 64), PAL.white, [0, 0.86, 0]), P(torusY(1.42, 0.075, 64, 0.5), PAL.orange, [0, 0.86, 0], [0, 0.4, 0]),
-    P(torusY(1.42, 0.075, 64, 0.5), PAL.orange, [0, 0.86, 0], [0, 0.4 + Math.PI, 0]),
-    ...[0, 1, 2, 3].map(k => P(cyl(0.03, 0.56, 6), PAL.chrome, [Math.cos(k * Math.PI / 2 + Math.PI / 4) * 0.7, 0.75, Math.sin(k * Math.PI / 2 + Math.PI / 4) * 0.7], [0, -(k * Math.PI / 2 + Math.PI / 4), Math.PI / 2 - 0.35], 'metal'))],
-  // Стартовая площадка очереди (только под передним модулем — по ней и тапают) и стрелка «куда полетит» у кромки поля
-  pad: () => [P(rbox(0.94, 0.07, 0.94, 0.2), PAL.pad, [0, 0.0, 0]), P(rbox(1.0, 0.03, 1.0, 0.22), PAL.padRim, [0, -0.03, 0])],
+  emitter: () => [P(rbox(0.14, 0.56, 0.14, 0.05), PAL.violet, [0, 0.28, 0]), P(sph(0.085, 12), '#ffffff', [0, 0.6, 0], null, 'lamp'), P(cyl(0.11, 0.06, 14), PAL.graph, [0, 0.03, 0], null, 'hull')],
+  // Палец защёлки: шарнир в нуле, палец вдоль +X, на конце — огонь энергии
+  claw: () => [P(rbox(0.24, 0.06, 0.08, 0.02), PAL.steel, [0.1, 0, 0], null, 'metal'), P(rbox(0.06, 0.09, 0.09, 0.02), '#ffffff', [0.22, -0.03, 0], null, 'energy')],
+  // Сопло общего модуля (очередь и полёт)
+  nozzle: () => [P(cylX(0.17, 0.1, 0.14, 16), PAL.steel, [-0.07, 0, 0], null, 'metal'), P(cylX(0.12, 0.12, 0.02, 16), '#ffffff', [-0.145, 0, 0], null, 'energy')],
   chev: () => { const s = new T.Shape(); s.moveTo(0.07, 0); s.lineTo(-0.07, 0.13); s.lineTo(-0.07, -0.13); s.lineTo(0.07, 0);
     const g = new T.ExtrudeGeometry(s, { depth: 0.03, bevelEnabled: false }); g.rotateX(-Math.PI / 2); return [P(g, '#ffffff', [0, 0.01, 0], null, 'lamp')]; },
   flame: () => [P(cylX(0.0, 0.13, 0.5, 14), '#ffffff', [-0.25, 0, 0], null, 'add')],          // широкое у сопла (x = 0), остриё назад
 };
 
+// Раскрытая роль одной моделью (основа + выдвижная часть на месте): после раскрытия игра рисует её вместо двух пулов.
+// shift — детали со сдвигом (dx вперёд, dz вбок) и сжатием по X (короткий нос / сопло, если сосед мешает)
+const shift = (parts, dx, dz, sx) => parts.map(p => { let g = p.geo; if (sx && sx !== 1){ g = g.clone(); g.scale(sx, 1, 1); }
+  return { geo: g, col: p.col, pos: [p.pos[0] * (sx || 1) + (dx || 0), p.pos[1], p.pos[2] + (dz || 0)], rot: p.rot, grp: p.grp }; });
+Object.assign(ART, {
+  rKF: () => [...ART.rK(), ...ART.rKnose()], rKFs: () => [...ART.rK(), ...shift(ART.rKnose(), 0, 0, 0.62)],
+  rEF: () => [...ART.rE(), ...ART.rEnoz()], rEFs: () => [...ART.rE(), ...shift(ART.rEnoz(), 0, 0, 0.7)],
+  rWRF: () => [...shift(ART.rWroot(), 0, -0.3), ...shift(ART.rWR(), 0, -0.42)], rWRiF: () => [...shift(ART.rWroot(), 0, -0.3), ...shift(ART.rWRi(), 0, -0.42)],
+  rWLF: () => [...shift(ART.rWroot(), 0, 0.3), ...shift(ART.rWL(), 0, 0.42)], rWLiF: () => [...shift(ART.rWroot(), 0, 0.3), ...shift(ART.rWLi(), 0, 0.42)],
+  rRF: () => [...ART.rR(), ...ART.rRfins()],
+  rTBF: () => [...ART.rT(), ...ART.rTB()], rTLF: () => [...ART.rT(), ...ART.rTL()], rTXF: () => [...ART.rT(), ...ART.rTX()],
+});
+
 // ---------- материалы ----------
 const MAT = {};
 function makeMats(){
-  MAT.body = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.36, metalness: 0.0, envMapIntensity: 0.7 });
-  MAT.metal = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.22, metalness: 0.85, envMapIntensity: 1.25 });
-  MAT.glass = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.1, metalness: 0.2, envMapIntensity: 1.1, emissive: '#0a1c66', emissiveIntensity: 0.6 });
+  MAT.hull = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.72, envMapIntensity: 1.25 });       // графитовый металл
+  MAT.body = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.3, metalness: 0.05, envMapIntensity: 0.85 });       // белые бронеплиты
+  MAT.metal = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.24, metalness: 0.9, envMapIntensity: 1.3 });
+  MAT.panel = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.32, metalness: 0.35, envMapIntensity: 1.0, emissive: '#5a2c00', emissiveIntensity: 0.75 });   // золото и оранжевые фермы — чуть светятся
+  MAT.glass = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.08, metalness: 0.3, envMapIntensity: 1.6, emissive: '#0b2a88', emissiveIntensity: 0.8 });
   MAT.rock = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0.0, flatShading: true, envMapIntensity: 0.4 });
-  MAT.lamp = new T.MeshBasicMaterial({ vertexColors: true, toneMapped: false });                            // цвет = цвет вершин × цвет инстанса
+  MAT.lamp = new T.MeshBasicMaterial({ vertexColors: true, toneMapped: false });                            // окна-статус: цвет = цвет вершин × lamp инстанса
+  MAT.energy = new T.MeshBasicMaterial({ vertexColors: true, toneMapped: false });                          // энергия: цвет × energy инстанса
   MAT.add = new T.MeshBasicMaterial({ vertexColors: true, toneMapped: false, transparent: true, blending: T.AdditiveBlending, depthWrite: false });
   MAT.ghost = new T.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.38, depthWrite: false, toneMapped: false });
   MAT.holo = new T.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.5, depthWrite: false, toneMapped: false, blending: T.AdditiveBlending });
+  MAT.body0 = MAT.body;                                                                                     // старое имя группы (модели Tripo)
 }
 
 // ---------- пулы: тип модели → InstancedMesh на группу материала ----------
@@ -183,25 +252,27 @@ class Model {
     for (const [g, ps] of Object.entries(byGrp)){
       const own = ps[0].mat;                                                                     // деталь со своим материалом (GLB из Tripo): геометрия и текстура как есть
       const mesh = new T.InstancedMesh(own ? ps[0].geo : merge(ps), own || MAT[g], SH.CAP);
-      mesh.instanceMatrix.setUsage(T.DynamicDrawUsage); mesh.count = 0; mesh.frustumCulled = false;
+      mesh.instanceMatrix.setUsage(T.DynamicDrawUsage); mesh.count = 0; mesh.visible = false; mesh.frustumCulled = false;
       mesh.setColorAt(0, WHITE); mesh.instanceColor.setUsage(T.DynamicDrawUsage);
       mesh.userData.grp = g; mesh.renderOrder = g === 'holo' || g === 'ghost' || g === 'add' ? 5 : 0;
       this.meshes.push(mesh); root.add(mesh);
     }
   }
   // tint — множитель цвета корпуса (красная вспышка, затемнение); lamp — цвет окон и огней
-  add(m, tint, lamp){
+  add(m, tint, lamp, en){
     if (this.n >= SH.CAP) return;
     for (const mesh of this.meshes){
       mesh.setMatrixAt(this.n, m);
       const g = mesh.userData.grp;
-      mesh.setColorAt(this.n, g === 'lamp' ? (lamp || WHITE) : (tint || WHITE));
+      mesh.setColorAt(this.n, g === 'lamp' ? (lamp || WHITE) : g === 'energy' ? (en || R3.EN) : (tint || WHITE));
     }
     this.n++;
   }
-  // пустой пул, который и в прошлом кадре был пуст, не трогаем — буферы не перезаливаются зря
-  flush(){ if (!this.n && !this.prev) return; this.prev = this.n; for (const mesh of this.meshes){ mesh.count = this.n; mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true; } }
+  // пустой пул, который и в прошлом кадре был пуст, не трогаем — буферы не перезаливаются зря; пустой пул не рисуется (v2.0: моделей ролей много)
+  // В GPU уходит только занятая часть буферов (ревью GPT: needsUpdate без диапазона перезаливал все SH.CAP инстансов каждого пула)
+  flush(){ if (!this.n && !this.prev) return; this.prev = this.n; for (const mesh of this.meshes){ mesh.count = this.n; mesh.visible = this.n > 0; upd(mesh.instanceMatrix, this.n * 16); if (mesh.instanceColor) upd(mesh.instanceColor, this.n * 3); } }
 }
+function upd(attr, len){ if (!len) return; attr.clearUpdateRanges(); attr.addUpdateRange(0, len); attr.needsUpdate = true; }
 const modelOf = (name, mode) => {
   const key = mode ? name + ':' + mode : name;
   return MODELS[key] || (MODELS[key] = new Model(key, ART[name](), mode));
@@ -267,11 +338,10 @@ R3.loadTripo = async function(names){
     geo.rotateY(best + (cfg.long === 'z' ? Math.PI / 2 : 0) + (cfg.yaw || 0));
     geo.computeBoundingBox(); const sz = geo.boundingBox.getSize(new T.Vector3()); const c = geo.boundingBox.getCenter(new T.Vector3()), k = cfg.len / (cfg.long === 'z' ? sz.z : sz.x);
     geo.translate(-c.x, -geo.boundingBox.min.y, -c.z); geo.scale(k, k, k); geo.translate(0, cfg.lift, 0); geo.computeBoundingSphere();
-    const key = name === 'solar' ? 'solarHub' : name, old = MODELS[key];
+    const key = name === 'solar' ? 'panQ' : name === 'hull' ? 'habQ' : name === 'truss' ? 'trussQ' : name, old = MODELS[key]; if (!old || !ART[key]) continue;
     for (const mesh of old.meshes){ root.remove(mesh); mesh.geometry.dispose(); mesh.dispose(); }      // общие материалы MAT остаются
     const parts = [{ geo, mat, grp: 'tripo', pos: [0, 0, 0], rot: [0, 0, 0] }, ...ART[key]().filter(p => cfg.keep.includes(p.grp))];
     delete MODELS[key]; MODELS[key] = new Model(key, parts);
-    if (name === 'solar'){ for (const mesh of MODELS.solarWing.meshes) mesh.visible = false; }
   }
   R3.tripo = names;
 };
@@ -333,12 +403,14 @@ function quadOf(name){
 // ---------- студийное окружение для бликов: комната с мягкими «софтбоксами» → PMREM ----------
 function makeEnv(){
   const s = new T.Scene(), box = new T.BoxGeometry(1, 1, 1);
-  const room = new T.Mesh(new T.BoxGeometry(20, 12, 20), new T.MeshBasicMaterial({ color: '#232a55', side: T.BackSide })); s.add(room);
+  const room = new T.Mesh(new T.BoxGeometry(20, 12, 20), new T.MeshBasicMaterial({ color: '#10142a', side: T.BackSide })); s.add(room);
   const light = (col, int, pos, sc) => { const m = new T.Mesh(box, new T.MeshBasicMaterial({ color: new T.Color(col).multiplyScalar(int) })); m.position.set(...pos); m.scale.set(...sc); s.add(m); };
-  light('#fff4e6', 6, [-4, 5.5, 3], [5, 0.2, 5]);     // ключевой софтбокс сверху-слева
-  light('#c9d4ff', 3, [5, 2, -2], [0.2, 4, 6]);       // холодный боковой
-  light('#ffb35c', 2.2, [0, 1, 9.5], [8, 2, 0.2]);    // тёплый фронтальный рефлекс
-  light('#8f7bff', 2.5, [0, 3, -9.5], [10, 3, 0.2]);  // фиолетовый контровой
+  // v2.0: тёмная комната с узкими световыми полосами — на графитовом металле читаются фаски и блики, а не ровная серая заливка
+  light('#f4f6ff', 7, [-3, 5.8, 2], [7, 0.15, 1.2]);   // ключевая полоса сверху
+  light('#dfe8ff', 4, [3, 5.8, -2], [6, 0.15, 0.6]);   // вторая полоса сверху
+  light('#7fd8ff', 3.2, [6, 2, 0], [0.2, 3, 9]);       // холодная боковая (бирюза)
+  light('#9d7bff', 2.6, [0, 3, -9.5], [10, 3, 0.2]);   // фиолетовый контровой
+  light('#ffb35c', 1.2, [0, 1, 9.5], [8, 1.5, 0.2]);   // тёплый рефлекс спереди (слабый)
   const pm = new T.PMREMGenerator(renderer); envTex = pm.fromScene(s, 0.04).texture; pm.dispose();
 }
 
@@ -353,12 +425,15 @@ R3.init = function(canvas){
   cam = new T.PerspectiveCamera(SH.FOV, 1, 0.5, 300); cam.up.set(0, 0, -1);    // «верх» экрана — −Z: камера может смотреть строго вниз
   makeMats(); makeTex(); makeEnv(); scene.environment = envTex;
   // Свет один на всё: при виде почти сверху ключевой свет стоит ниже и сбоку — округлые формы получают градиент, а не плоскую заливку
-  scene.add(new T.HemisphereLight(PAL.hemiSky, PAL.hemiGround, 1.05));
-  const key = new T.DirectionalLight(PAL.key, 2.3); key.position.set(-6, 7, 6); scene.add(key);
-  const rim = new T.DirectionalLight(PAL.rim, 1.0); rim.position.set(5, 4, -7); scene.add(rim);
+  // v2.0 стиль A: ключ белый сверху-слева, контровой холодный сзади-сверху (кромки металла и плит светятся на тёмном небе), второй
+  // контровой фиолетовый с другой стороны; небо-полушарие слабее — тёмный металл остаётся тёмным
+  scene.add(new T.HemisphereLight(PAL.hemiSky, PAL.hemiGround, 0.75));
+  const key = new T.DirectionalLight(PAL.key, 2.2); key.position.set(-6, 8, 5); scene.add(key);
+  const rim = new T.DirectionalLight(PAL.rim, 1.7); rim.position.set(4, 5, -8); scene.add(rim);
+  const rim2 = new T.DirectionalLight(PAL.rim2, 0.9); rim2.position.set(-7, 3, -4); scene.add(rim2);
+  R3.EN = new T.Color('#3fe6ff');
   for (const n of Object.keys(ART)) modelOf(n);
-  for (const n of ['hull', 'solarHub', 'solarWing', 'truss']) modelOf(n, 'ghost');
-  for (const n of ['hull', 'solarHub', 'solarWing', 'truss', 'nose', 'engine', 'fin', 'dish', 'mast', 'leg', 'ringDeco']) modelOf(n, 'holo');
+  for (const n of ['habQ', 'panQ', 'trussQ']){ modelOf(n, 'ghost'); modelOf(n, 'holo'); }
   for (const n of ['shadow', 'glow', 'ring', 'bpHull', 'bpSolar', 'bpTruss']) quadOf(n);
   R3.ready = true; return true;
 };
@@ -413,7 +488,7 @@ R3.mat = function(x, y, z, yaw, sc, rx, rz, out){
   if (Array.isArray(sc)) tmpS.set(sc[0], sc[1], sc[2]); else tmpS.set(sc === undefined ? 1 : sc, sc === undefined ? 1 : sc, sc === undefined ? 1 : sc);
   return m.compose(tmpV.set(x, y, z), tmpQ, tmpS);
 };
-R3.put = function(name, m, tint, lamp, mode){ modelOf(name, mode).add(m, tint, lamp); };
+R3.put = function(name, m, tint, lamp, mode, en){ modelOf(name, mode).add(m, tint, lamp, en); };
 R3.quad = function(name, x, y, z, sx, sz, yaw, col, alpha){
   const q = quadOf(name); if (q.n >= SH.CAP * 2) return;
   tmpE.set(0, yaw || 0, 0); tmpQ.setFromEuler(tmpE); tmpM.compose(tmpV.set(x, y, z), tmpQ, tmpS.set(sx, 1, sz));
@@ -424,7 +499,7 @@ R3.quad = function(name, x, y, z, sx, sz, yaw, col, alpha){
 R3.color = (hex, k) => { const c = new T.Color(hex); if (k !== undefined) c.multiplyScalar(k); return c; };
 R3.end = function(){
   for (const m of Object.values(MODELS)) m.flush();
-  for (const q of Object.values(QUADS)){ if (!q.n && !q.prev) continue; q.prev = q.n; q.mesh.count = q.n; q.mesh.instanceMatrix.needsUpdate = true; if (q.mesh.instanceColor) q.mesh.instanceColor.needsUpdate = true; }
+  for (const q of Object.values(QUADS)){ if (!q.n && !q.prev) continue; q.prev = q.n; q.mesh.count = q.n; q.mesh.visible = q.n > 0; upd(q.mesh.instanceMatrix, q.n * 16); if (q.mesh.instanceColor) upd(q.mesh.instanceColor, q.n * 3); }
 };
 
 // ---------- камера: вписать точки (мировые) в прямоугольник экрана ----------
@@ -510,8 +585,8 @@ R3.snapshot = function(fill, size, span){
       fragmentShader: SNAP_FRAG, depthTest: false, depthWrite: false, toneMapped: false, blending: T.NoBlending }));
     snapPass.frustumCulled = false; snapScene = new T.Scene(); snapScene.add(snapPass); snapCam = new T.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   }
-  const c2 = new T.PerspectiveCamera(30, 1, 0.5, 200), p = 50 * Math.PI / 180, d = span / Math.tan(15 * Math.PI / 180) * 0.62;
-  c2.position.set(d * 0.18, Math.sin(p) * d, Math.cos(p) * d); c2.lookAt(0, 0.3, 0);
+  const c2 = new T.PerspectiveCamera(30, 1, 0.5, 200), p = 64 * Math.PI / 180, d = span / Math.tan(15 * Math.PI / 180) * 0.62;
+  c2.up.set(0, 1, 0); c2.position.set(d * 0.12, Math.sin(p) * d, Math.cos(p) * d); c2.lookAt(0, 0.3, 0);
   staticGroup.visible = false;
   R3.begin(); fill(R3); R3.end();
   renderer.setRenderTarget(snapRT); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(scene, c2);

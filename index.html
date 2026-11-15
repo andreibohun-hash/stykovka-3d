@@ -111,6 +111,7 @@ footer .b img{width:23px;height:23px}
 .card .row{display:flex;gap:8px;justify-content:center;margin-top:8px}
 .card .row .b{flex:1;min-width:0;font-size:15px;padding:0;border-width:24px 21px;border-image-width:24px 21px}
 .emblem{width:96px;height:96px;margin:-6px auto 2px;display:block;object-fit:contain;filter:drop-shadow(0 6px 10px rgba(0,0,0,.45))}
+.emblem.ship{width:132px;height:132px;margin:-18px auto -10px;filter:drop-shadow(0 0 14px rgba(63,216,255,.35))}
 .shot{width:min(62vw,230px);height:min(62vw,230px);margin:-10px auto -6px;display:block;object-fit:contain;filter:drop-shadow(0 10px 16px rgba(0,0,0,.5))}
 .levels{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:10px 0 6px}
 .levels button{position:relative;aspect-ratio:1;border:0;padding:0;background:url('assets/ui/round-navy.png') center/contain no-repeat;
@@ -146,6 +147,38 @@ footer .b img{width:23px;height:23px}
 #toast.bad{box-shadow:0 0 0 2px var(--bad),0 6px 16px rgba(0,0,0,.4)}
 #toast.hide{opacity:0}
 #boot{position:absolute;inset:0;z-index:9;display:none;place-items:center;text-align:center;padding:30px;font-weight:800;color:var(--muted)}
+/* ---------- v2.0 стиль A «Тёмный металл и свет»: интерфейс строже — графитовые панели с бирюзовой кромкой и светом (как кадры
+   art-src/ships/A-*.jpg). Кит GPT 9-slice снят с панелей и кнопок (оранжевый мультяшный пластик спорил с кораблями); значки,
+   звёзды, батарейки и шрифт — прежние. Главное действие карточки — бирюзовое, остальное — графит. ---------- */
+:root{ --muted:#93a3c8; --cyan:#3fe6ff; --edge:#3fd8ff; --gm1:#283149; --gm2:#141a2b; --gm3:#0b0f1c; }
+header{border:0;border-image:none;padding:3px 8px;border-radius:16px;min-height:52px;
+  background:linear-gradient(#202941f0,#0f1424f2);box-shadow:inset 0 0 0 1.5px #3fd8ff99,inset 0 1px 0 #ffffff2a,0 0 14px #3fd8ff33,0 4px 12px #0008}
+header > *{margin:0}
+#hud-goal{margin-left:-2px;border-radius:12px;background:radial-gradient(#22304f,#0c1120);box-shadow:inset 0 0 0 1.5px #3fd8ff88}
+#prog{background:#070b16;box-shadow:inset 0 2px 3px rgba(0,0,0,.6),0 0 0 1.5px #2f4a72}
+#prog-fill{background:linear-gradient(90deg,#1fb9e6,#5ff2ff)}
+#prog-n{color:var(--cyan)}
+#btn-mute{margin-right:-2px;border-radius:50%;background:radial-gradient(#2a3552,#111728);box-shadow:inset 0 0 0 1.5px #3fd8ffaa,0 0 8px #3fd8ff33}
+.b{border:0;border-image:none;border-radius:15px;padding:0 14px;min-height:54px;text-shadow:0 1px 0 rgba(0,0,0,.6);
+  background:linear-gradient(#1fc6ea,#0f7fb6);box-shadow:inset 0 0 0 1.5px #a8f6ff,inset 0 2px 0 #ffffff55,0 0 16px #3fd8ff55,0 4px 0 #06324a}
+.b > *{margin:0}
+.b.navy,footer .b{background:linear-gradient(var(--gm1),var(--gm2));box-shadow:inset 0 0 0 1.5px #3fd8ffaa,inset 0 2px 0 #ffffff22,0 0 12px #3fd8ff2e,0 4px 0 #05070e}
+footer .b{border:0;border-radius:14px;min-height:50px;padding:0 6px}
+footer .b > *{margin:0}
+.card .row .b{border:0;padding:0 8px}
+.b:disabled{filter:grayscale(.7) brightness(.6)}
+.card{border:0;border-image:none;border-radius:22px;padding:22px 14px 16px;
+  background:linear-gradient(#1b2338f5,#0b1020f8);box-shadow:inset 0 0 0 1.5px #3fd8ffaa,inset 0 1px 0 #ffffff2a,0 0 26px #3fd8ff3a,0 12px 30px #000c}
+.card h1{text-shadow:0 0 14px #3fd8ff99,0 3px 0 #06324a}
+.card h1 span{background:linear-gradient(#1fc6ea,#0f7fb6);box-shadow:0 0 10px #3fd8ff88}
+.card h2{text-shadow:0 0 12px #3fd8ff66,0 3px 0 rgba(0,0,0,.4)}
+.levels button{background:radial-gradient(#2a3552,#111728);border-radius:50%;box-shadow:inset 0 0 0 1.5px #3fd8ff88,0 3px 0 #05070e}
+.levels button.cur{background:radial-gradient(#3ee0ff,#0f7fb6);box-shadow:inset 0 0 0 1.5px #c8fbff,0 0 12px #3fd8ff88,0 3px 0 #06324a}
+.hgrid div{background:radial-gradient(#1d2944,#0b1020);box-shadow:inset 0 0 0 1.5px #3fd8ff55}
+.count{background:#070b16;box-shadow:inset 0 0 0 1.5px #2f6a92;color:var(--cyan)}
+#toast{background:rgba(12,17,32,.95);box-shadow:0 0 0 1.5px #3fd8ffaa,0 6px 16px rgba(0,0,0,.4)}
+.help-list b{color:var(--cyan)}
+.cheat{border-color:#5a6f99;color:#8fa0c8}
 @media (prefers-reduced-motion: reduce){ #goal-big.show{display:none;animation:none} .card,.stars i.pop,#prog.bump,#bats i.blink,.b.pulse{animation:none} #toast,#prog-fill{transition:none} }
 </style>
 </head>
@@ -155,7 +188,7 @@ footer .b img{width:23px;height:23px}
   <div id="game"><canvas id="cv3"></canvas><canvas id="fx"></canvas></div>
   <header>
     <div id="hud-goal"></div>
-    <div class="hud-mid"><span id="hud-obj"><i>1</i>Ракета</span><div class="prog-row"><div id="prog"><div id="prog-fill"></div></div><b id="prog-n">0/9</b></div></div>
+    <div class="hud-mid"><span id="hud-obj"></span><div class="prog-row"><div id="prog"><div id="prog-fill"></div></div><b id="prog-n"></b></div></div>
     <div id="bats"><i></i><i></i><i></i></div>
     <button id="btn-mute" aria-label="звук"><img id="mute-ic" src="assets/ui/ic-sound.png" alt=""></button>
   </header>
@@ -172,7 +205,7 @@ footer .b img{width:23px;height:23px}
   <div id="boot">3D не запустилось на этом устройстве (WebGL выключен). Попробуй другой браузер.</div>
 </div>
 <script src="vendor/three.js"></script>
-<script src="assets/scene3d.js?v=1.3.0"></script>  <!-- ?v= — номер версии: Pages и браузер кэшируют файлы до 10 мин; менять вместе с VERSION -->
+<script src="assets/scene3d.js?v=2.0.0"></script>  <!-- ?v= — номер версии: Pages и браузер кэшируют файлы до 10 мин; менять вместе с VERSION -->
 <script>
 'use strict';
 /* ЯДРО */
@@ -271,6 +304,13 @@ const CFG = {
   MAX_CELL_PX: 72,       // клетка на экране не крупнее (маленькие уровни не раздуваются)
   DOCK_WAVE_MS: 70,      // стыковка: огни станции вспыхивают волной от шва, задержка на клетку
   DOCK_PUNCH: 0.022,     // стыковка: камера на миг приближается на эту долю
+  // ---- v2.0 «Корабли»: превращение модуля в роль и энергия от ядра ----
+  ROLE_SWAP: 210,        // общий модуль сменяется ролью через столько после касания (под защёлками и вспышкой шва); до этого — доворот к оси
+  ROLE_MS: 340,          // раскрытие роли: нос выдвигается, крыло раскладывается, сопло выезжает, ствол выдвигается
+  ENERGY_STEP: 40,       // энергия от ядра на стыковке: задержка на шаг по кораблю (мс)
+  ENERGY_PERIOD: 2600,   // ровный ток: импульс света бежит от ядра по кораблю раз в столько мс
+  FLAME_IDLE: 0.6,       // факел двигателя на поле: длина (×0,5 клетки) — короткий, длинный только на финале
+  END_POWER_MS: 420,     // финал: «всё на максимум» (энергия волной от ядра, факелы разгораются) до зажигания
 };
 
 // Значения occ; > 0 — пристыкованный модуль этого типа.
@@ -296,40 +336,78 @@ function mulberry32(seed){
   };
 }
 
-// Каталог объектов: чертёж — это вещь. Карта: 'C' ядро, 'o' жилая капсула, 's' солнечная панель, '*' капсула или панель
-// (по сиду, доля p.solar), цифра — ферма (пара одинаковых цифр рядом = одна ферма на 2 клетки), '.' пусто.
-// deco — детали, которых нет в правилах, но которые делают вещь узнаваемой: нос, сопла, стабилизаторы, тарелка, мачта,
-// посадочные опоры, кольцо вокруг ядра. Клетка + сторона, куда деталь смотрит. До победы они видны голограммой
-// чертежа, после — достраиваются по-настоящему. sym — объект симметричен, зеркалить не нужно.
-// Масштаб на 1000 уровней: объект × зеркало × '*' × препятствия × порядок постройки (его выбирает генератор).
+// Каталог (v2.0 «Корабли»): чертёж — корабль или спутник, нос вверх (axis 'T'). Карта: 'C' ядро (реактор/мостик), 'o' жилой
+// модуль, 's' панель, '*' жилой или панель (по сиду, доля p.solar), цифра — ферма (пара одинаковых цифр рядом = одна ферма на
+// 2 клетки), '.' пусто. Вид модуля — роль по месту в готовом корабле (shipRoles): нос — кабина, хвост — двигатель, бок — крыло,
+// ферма вдоль оси — хребет/ускоритель, поперёк — пилон с орудием. Правила роль не трогает. ch — класс (глава) для paramsFor,
+// sym — симметричен (не зеркалить). deco — детали вида сверх ролей (у кораблей пусто: нос, сопла и крылья — сами роли).
+// Силуэты проверены генератором (tools/ships-check.mjs, docs/ships-concept.md §5).
 const OBJECTS = {
-  rocket: { name: 'Ракета', sym: true, map: ['.o.', '.o.', 'oCo', 'ooo', 'o.o'],
-    deco: [{ t: 'nose', c: [1, 0], d: 'T' }, { t: 'engine', c: [0, 4], d: 'B' }, { t: 'engine', c: [2, 4], d: 'B' }, { t: 'fin', c: [0, 3], d: 'L' }, { t: 'fin', c: [2, 3], d: 'R' }] },
-  cross: { name: 'Станция-крест', sym: true, map: ['..o..', '.ooo.', 'ooCoo', '.ooo.', '..o..'],
-    deco: [{ t: 'dish', c: [2, 0], d: 'T' }, { t: 'mast', c: [2, 4], d: 'B' }, { t: 'mast', c: [0, 2], d: 'L' }, { t: 'mast', c: [4, 2], d: 'R' }] },
-  satellite: { name: 'Спутник', sym: true, map: ['.ooo.', 'ssCss', 's.o.s'],
-    deco: [{ t: 'dish', c: [2, 0], d: 'T' }, { t: 'mast', c: [2, 2], d: 'B' }] },
-  powerplant: { name: 'Электростанция', sym: true, map: ['.ooo.', 'ssCss', '.ooo.'],
-    deco: [{ t: 'dish', c: [2, 0], d: 'T' }, { t: 'mast', c: [1, 2], d: 'B' }, { t: 'mast', c: [3, 2], d: 'B' }, { t: 'ring', c: [2, 1] }] },
-  lander: { name: 'Лунный модуль', sym: true, map: ['.ooo.', '.oCo.', '.o.o.', 'oo.oo'],
-    deco: [{ t: 'dish', c: [2, 0], d: 'T' }, { t: 'leg', c: [0, 3], d: 'B' }, { t: 'leg', c: [4, 3], d: 'B' }, { t: 'engine', c: [2, 1], d: 'B' }] },
-  city: { name: 'Орбитальный город', sym: true, map: ['..o..', 's*o*s', '.oCo.', 's*o*s', '..o..'],
-    deco: [{ t: 'mast', c: [2, 0], d: 'T' }, { t: 'mast', c: [2, 4], d: 'B' }, { t: 'ring', c: [2, 2] }] },
-  ring: { name: 'Станция-кольцо', sym: true, map: ['ooo', 'oCo', 'ooo'],
-    deco: [{ t: 'ring', c: [1, 1] }, { t: 'dish', c: [1, 0], d: 'T' }] },
-  ringwings: { name: 'Кольцо с крыльями', sym: true, map: ['.ooo.', 'soCos', '.ooo.'],
-    deco: [{ t: 'ring', c: [2, 1] }, { t: 'dish', c: [2, 0], d: 'T' }] },
-  tug: { name: 'Буксир', map: ['oo.', '.oC', '.oo', '..o'],
-    deco: [{ t: 'nose', c: [2, 3], d: 'B' }, { t: 'engine', c: [0, 0], d: 'L' }, { t: 'dish', c: [1, 0], d: 'T' }] },
-  mast: { name: 'Мачта связи', sym: true, map: ['.o1o.', '.o1o.', '22C33', '..o..', '..o..'],
-    deco: [{ t: 'dish', c: [2, 0], d: 'T' }, { t: 'mast', c: [2, 4], d: 'B' }] },
-  ship: { name: 'Звездолёт', sym: true, map: ['..o..', '.ooo.', '11C22', '.ooo.', '.o.o.'],
-    deco: [{ t: 'nose', c: [2, 0], d: 'T' }, { t: 'engine', c: [1, 4], d: 'B' }, { t: 'engine', c: [3, 4], d: 'B' }, { t: 'fin', c: [0, 2], d: 'L' }, { t: 'fin', c: [4, 2], d: 'R' }] },
-  shipyard: { name: 'Солнечная верфь', sym: true, map: ['.sos.', '11C22', '.sos.'],
-    deco: [{ t: 'mast', c: [2, 0], d: 'T' }, { t: 'mast', c: [2, 2], d: 'B' }, { t: 'ring', c: [2, 1] }] },
-  dock: { name: 'Звёздный док', sym: true, map: ['..o..', '.sos.', '11C22', '.ooo.', '..o..'],
-    deco: [{ t: 'dish', c: [2, 0], d: 'T' }, { t: 'mast', c: [2, 4], d: 'B' }, { t: 'ring', c: [2, 2] }] },
+  probe:     { name: 'Зонд «Искра»',    ch: 1, axis: 'T', sym: true, map: ['.o.', 'sCs', '.o.'], deco: [] },
+  relay:     { name: 'Спутник связи',   ch: 1, axis: 'T', sym: true, map: ['.ooo.', 'ssCss', '..o..'], deco: [] },
+  sunprobe:  { name: 'Солнечный зонд',  ch: 1, axis: 'T', sym: true, map: ['.sos.', 'soCos', '.sos.'], deco: [] },
+  shuttle:   { name: 'Челнок',          ch: 2, axis: 'T', sym: true, map: ['..o..', '.ooo.', 'soCos', '.o.o.'], deco: [] },
+  fighter:   { name: 'Истребитель',     ch: 2, axis: 'T', sym: true, map: ['..o..', '.ooo.', 'soCos', 's.o.s', '.ooo.'], deco: [] },
+  intercept: { name: 'Перехватчик',     ch: 2, axis: 'T', sym: true, map: ['..o..', '..1..', '.o1o.', 'ssCss', '.o.o.'], deco: [] },
+  cruiser:   { name: 'Крейсер',         ch: 3, axis: 'T', sym: true, map: ['..o..', '.o1o.', '..1..', '22C33', '.s4s.', '.o4o.'], deco: [] },
+  freighter: { name: 'Грузовоз',        ch: 3, axis: 'T', sym: true, map: ['..o..', '.o1o.', '.o1o.', 'ssCss', '.o2o.', '.o2o.', '..o..'], deco: [] },
+  flagship:  { name: 'Флагман',         ch: 3, axis: 'T', sym: true, map: ['..o..', '.s1s.', 'oo1oo', '22C33', 'so4os', '.o4o.'], deco: [] },
+  scout:     { name: 'Разведчик',       ch: 3, axis: 'T', map: ['.o..', 'soCs', '.o1.', '..1.', '..o.'], deco: [] },
 };
+
+// Роль клетки в корабле (v2.0) — только вид, правила её не видят. Считается по ФИНАЛЬНОМУ чертежу (bp + ядро) и оси «нос вверх»,
+// а не по соседям в момент стыковки: роль гнезда известна с начала уровня и не меняется, пока достраиваются соседи.
+// r[i]: K кабина, H отсек, D купол-сенсор, E двигатель; W крыло, R радиатор, S щит, A антенна, P энергоплита;
+// '|' хребет, B ускоритель, L таран, '=' пилон, X пилон с орудием; C ядро; '' — не корабль.
+// side[i]: куда смотрит боковая роль (−1 влево, 1 вправо, 0 по оси); open[i]: стороны без соседей [перед, зад, лево, право] —
+// только туда роль может выходить за клетку (нос, сопло, крыло). Прототип правила — roles() в tools/ships-check.mjs.
+function shipRoles(lay){
+  const w = lay.w, h = lay.h, N = w * h, bp = lay.bp, grp = lay.grp, c0 = lay.core[0], cx0 = c0 % w, cy0 = (c0 - cx0) / w;
+  const ship = (x, y) => x >= 0 && y >= 0 && x < w && y < h && (bp[y * w + x] > 0 || lay.base[y * w + x] === CORE);
+  const r = new Array(N).fill(''), side = new Array(N).fill(0), open = new Array(N).fill(null);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++){
+    const i = y * w + x, k = bp[i];
+    if (lay.base[i] === CORE && !k){ r[i] = 'C'; continue; }
+    if (!k) continue;
+    const pos = cy0 - y, onAxis = x === cx0, oF = !ship(x, y - 1), oB = !ship(x, y + 1), oL = !ship(x - 1, y), oR = !ship(x + 1, y);
+    open[i] = [oF, oB, oL, oR]; side[i] = x < cx0 ? -1 : x > cx0 ? 1 : 0;
+    if (k === HULL){
+      const nb = 4 - [oF, oB, oL, oR].filter(Boolean).length;
+      if (oB && (pos < 0 || (pos === 0 && onAxis))) r[i] = 'E';
+      else if (oF && pos >= 0) r[i] = onAxis ? 'K' : 'D';
+      else if (nb === 1){ r[i] = 'D'; if (!onAxis) side[i] = oL ? -1 : oR ? 1 : side[i]; }
+      else r[i] = 'H';
+    } else if (k === SOLAR){
+      const run = (dx) => { let xx = x + dx; while (xx >= 0 && xx < w && bp[y * w + xx] === SOLAR) xx += dx; return !ship(xx, y); };
+      const outSide = x < cx0 ? run(-1) : x > cx0 ? run(1) : (oL || oR);
+      if (onAxis && outSide) side[i] = oL ? -1 : 1;
+      if (outSide) r[i] = 'W';
+      else if (oB && pos < 0) r[i] = 'R';
+      else if (oF) r[i] = onAxis ? 'S' : 'A';
+      else r[i] = 'P';
+    } else if (k === TRUSS){
+      const cells = []; for (let j = 0; j < N; j++) if (bp[j] === TRUSS && grp[j] === grp[i]) cells.push(j);
+      const pair = cells.filter(j => Math.abs(j - i) === w || (Math.abs(j - i) === 1 && Math.floor(j / w) === y));
+      const j = pair.length ? pair[0] : i, vert = Math.abs(j - i) === w;
+      if (vert){
+        const top = Math.min(y, Math.floor(j / w)), bot = Math.max(y, Math.floor(j / w));
+        r[i] = !ship(x, bot + 1) && bot >= cy0 ? 'B' : !ship(x, top - 1) && top < cy0 ? 'L' : '|';
+      } else {
+        const lft = Math.min(x, j % w), rgt = Math.max(x, j % w);
+        side[i] = lft < cx0 ? -1 : 1;
+        r[i] = (lft < cx0 ? !ship(lft - 1, y) : !ship(rgt + 1, y)) ? 'X' : '=';
+      }
+    }
+  }
+  // Запас: у корабля всегда есть кабина и двигатель. Нет кабины — кабиной становится самая передняя жилая клетка (ближе к оси),
+  // нет двигателя — самая задняя. Ничья при равных (зеркальная пара) — левая: несимметричным это не мешает, у симметричных
+  // кабина и двигатель находятся основным правилом (проверяет тест).
+  const habs = []; for (let i = 0; i < N; i++) if (bp[i] === HULL) habs.push(i);
+  const X = (i) => i % w, Yc = (i) => Math.floor(i / w), dist = (i) => Math.abs(X(i) - cx0);
+  if (habs.length && !r.includes('K')){ const i = habs.slice().sort((a, b) => Yc(a) - Yc(b) || dist(a) - dist(b) || X(a) - X(b))[0]; r[i] = 'K'; }
+  if (habs.length > 1 && !r.includes('E')){ const i = habs.slice().sort((a, b) => Yc(b) - Yc(a) || dist(a) - dist(b) || X(a) - X(b))[0]; if (r[i] !== 'K') r[i] = 'E'; }
+  return { r, side, open };
+}
 
 // Контент. Обучающие уровни — картой: '.' пусто, 'C' ядро, '#' обломок, 'o' пунктир жилой капсулы,
 // 's' пунктир солнечной панели; очереди — 'сторона+индекс:типы, передний первым' (T/B — столбец, L/R — ряд).
@@ -337,38 +415,23 @@ const OBJECTS = {
 // Остальные — генератор genObject(gen, seed) от формы объекта; сид подобран `node sim.mjs pick` под полосу band
 // (доля партий новичка без единого тупика). Сид = номер уровня × 1000 + подбор.
 const LEVELS = [
-  { n: 1, title: 'Первая стыковка', hint: 'Тапни модуль — он полетит к станции', name: 'Зонд',
-    map: ['.....', '.....', '.oCo.', '.....', '.....'], q: ['L2:o', 'R2:o'], deco: [{ t: 'dish', c: [2, 2], d: 'T' }] },
-  { n: 2, title: 'Очередь', hint: 'Значок на углу — следующий в очереди. Он встанет на шаг дальше', name: 'Буй',
-    map: ['.....', '..o..', 'ooCo.', '.....', '.....'], q: ['L2:oo', 'R2:o', 'T2:o'], deco: [{ t: 'mast', c: [2, 1], d: 'T' }, { t: 'mast', c: [0, 2], d: 'L' }] },
-  { n: 3, title: 'Не сейчас', hint: 'Мимо станции — улетит. Сначала подставь опору', name: 'Маяк',
-    map: ['.....', '.o...', '.oCo.', '...o.', '.....'], q: ['L2:o', 'T1:o', 'R2:o', 'B3:o'], deco: [{ t: 'dish', c: [1, 1], d: 'T' }, { t: 'mast', c: [3, 3], d: 'B' }] },
-  { n: 4, title: 'Чужое место', hint: 'Встал в пунктир — ещё не значит, что на своё место', name: 'Челнок',
-    map: ['.....', '.o...', 'ooC..', '.oo..', '.....'], q: ['B2:o', 'L3:o', 'L2:oo', 'T1:o'],
-    deco: [{ t: 'nose', c: [1, 1], d: 'T' }, { t: 'engine', c: [1, 3], d: 'B' }, { t: 'engine', c: [2, 3], d: 'B' }, { t: 'fin', c: [0, 2], d: 'L' }] },
-  { n: 5, title: 'Ракета', gen: { obj: 'rocket' }, band: [0.45, 0.9], seed: 5002 },
-  { n: 6, title: 'Крестовина', gen: { obj: 'cross' }, band: [0.45, 0.8], seed: 6008 },
-  { n: 7, title: 'Солнечные панели', hint: 'Панель встаёт только в жёлтый пунктир', gen: { obj: 'satellite' }, band: [0.5, 0.95], seed: 7002 },
-  { n: 8, title: 'Электростанция', gen: { obj: 'powerplant' }, band: [0.35, 0.75], seed: 8010 },
-  { n: 9, title: 'Пояс обломков', hint: 'Об обломок модуль тоже стукнется', gen: { obj: 'lander', debris: 2 }, need: { debrisHits: 1 }, band: [0.4, 0.8], seed: 9005 },
-  { n: 10, title: 'Орбитальный город', gen: { obj: 'city', solar: 0.5, debris: 1 }, band: [0.3, 0.7], seed: 10003 },
-  // Глава 2 «Красная планета»: сложность не числом модулей, а новыми элементами и их сочетанием.
-  // Карта: '/' и '\\' — отражатели, 'g' — силовое поле, 'G' — поле над клеткой чертежа (жилой), пороги — gates[] по порядку чтения;
-  // цифра — пунктир фермы (одна цифра = одна ферма на 2 клетки). need — что обязано участвовать в решении (для pick).
-  { n: 11, ch: 2, title: 'Отражатель', hint: 'Отражатель поворачивает модуль на 90°', name: 'Разведчик',
-    map: ['.......', '.......', '.\\oCo..', '...o...', '.......'], q: ['T1:o', 'R2:o', 'B3:o'], deco: [{ t: 'dish', c: [3, 2], d: 'T' }, { t: 'mast', c: [3, 3], d: 'B' }, { t: 'engine', c: [4, 2], d: 'R' }] },
-  { n: 12, ch: 2, title: 'Зеркальный коридор', gen: { obj: 'ring', mirrors: 2 }, need: { mirrorHits: 2 }, band: [0.5, 0.85], seed: 12001 },
-  { n: 13, ch: 2, title: 'Ферма', hint: 'Ферма длиной в две клетки — и пунктир у неё двойной', name: 'Мачта',
-    map: ['.....', '..1..', '..1..', '.oCo.', '..2..', '..2..', '.....'], q: ['T2:t', 'L3:o', 'B2:t', 'R3:o'], deco: [{ t: 'dish', c: [2, 1], d: 'T' }, { t: 'mast', c: [2, 5], d: 'B' }] },
-  { n: 14, ch: 2, title: 'Мачты', gen: { obj: 'mast' }, need: { trusses: 3 }, band: [0.45, 0.85], seed: 14012 },
-  { n: 15, ch: 2, title: 'Силовое поле', hint: 'Поле пропустит после двух стыковок — число на нём', name: 'Шлюз',
-    map: ['.......', '....o..', '..GoCo.', '.......', '.......'], q: ['L2:oo', 'T4:o', 'R2:o'], gates: [2], deco: [{ t: 'dish', c: [4, 1], d: 'T' }, { t: 'mast', c: [5, 2], d: 'R' }] },
-  { n: 16, ch: 2, title: 'Шлюзы', gen: { obj: 'ringwings', gates: 2 }, need: { gateUses: 2 }, band: [0.45, 0.8], seed: 16001 },
-  { n: 17, ch: 2, title: 'Ферма за углом', gen: { obj: 'ship', mirrors: 2 }, need: { mirrorHits: 2, trusses: 2 }, band: [0.4, 0.8], seed: 17008 },
-  { n: 18, ch: 2, title: 'Поле и зеркало', gen: { obj: 'tug', mirrors: 2, gates: 1 }, need: { mirrorHits: 1, gateUses: 1 }, band: [0.35, 0.75], seed: 18019 },
-  { n: 19, ch: 2, title: 'Солнечная верфь', gen: { obj: 'shipyard', gates: 1 }, need: { trusses: 2, gateUses: 1 }, band: [0.35, 0.75], seed: 19014 },
-  { n: 20, ch: 2, title: 'Звёздный док', gen: { obj: 'dock', mirrors: 1, gates: 1, debris: 1 },
-    need: { mirrorHits: 1, trusses: 2, gateUses: 1 }, band: [0.3, 0.7], seed: 20006 },
+  // Глава 1 «Голубая планета»: зонды и спутники, первый корабль. Обучение — маленькие родные формы, 1–2 тапа на шаг.
+  { n: 1, title: 'Первая стыковка', hint: 'Тапни модуль — он полетит к реактору', name: 'Зонд',
+    map: ['o', 'C', 'o'], q: ['T0:o', 'B0:o'], deco: [] },
+  { n: 2, title: 'Очередь', hint: 'Второй из очереди встанет на шаг дальше', name: 'Зонд-разведчик',
+    map: ['o', 'o', 'C', 'o'], q: ['T0:oo', 'B0:o'], deco: [] },
+  { n: 3, title: 'Крылья', hint: 'Панель встаёт только в жёлтый пунктир — и становится крылом', name: 'Зонд «Искра»',
+    map: ['.o.', 'sCs', '.o.'], q: ['L1:s', 'R1:s', 'T1:o', 'B1:o'], deco: [] },
+  { n: 4, title: 'Спутник связи', hint: 'Мимо корабля модуль улетит. Сначала подставь опору', gen: { obj: 'relay' }, band: [0.55, 0.95], random: 0.7, seed: 4025 },
+  { n: 5, title: 'Челнок', hint: 'Встал в пунктир — ещё не значит, что на своё место', gen: { obj: 'shuttle' }, band: [0.45, 0.9], seed: 5002 },
+  // Глава 2 «Красная планета»: корабли крупнее; новые элементы — по одному.
+  // Препятствия генератора: debris — обломки, mirrors — отражатели, gates — силовые поля; need — что обязано участвовать в решении (для pick);
+  // random — свой потолок побед случайного тапера (ранний уровень может быть щедрее общего порога sim.mjs).
+  { n: 6, ch: 2, title: 'Пояс обломков', hint: 'Об обломок модуль тоже стукнется', gen: { obj: 'fighter', debris: 2 }, need: { debrisHits: 1 }, band: [0.4, 0.85], seed: 6006 },
+  { n: 7, ch: 2, title: 'Ферма', hint: 'Ферма длиной в две клетки — и пунктир у неё двойной', gen: { obj: 'intercept', debris: 1 }, need: { trusses: 1 }, band: [0.4, 0.85], seed: 7003 },
+  { n: 8, ch: 2, title: 'Отражатель', hint: 'Отражатель поворачивает модуль на 90°', gen: { obj: 'scout', mirrors: 2 }, need: { mirrorHits: 1 }, band: [0.45, 0.85], seed: 8275 },
+  { n: 9, ch: 2, title: 'Силовое поле', hint: 'Поле пропустит после нескольких стыковок — число на нём', gen: { obj: 'cruiser', gates: 1 }, need: { gateUses: 1, trusses: 2 }, band: [0.35, 0.8], seed: 9004 },
+  { n: 10, ch: 2, title: 'Флагман', gen: { obj: 'flagship', mirrors: 1, gates: 1, debris: 1 }, need: { mirrorHits: 1, trusses: 2, gateUses: 1 }, band: [0.3, 0.75], seed: 10041 },
 ];
 
 function idxOf(w, x, y){ return y * w + x; }
@@ -653,10 +716,12 @@ function levelMetrics(s0, runs, seed){
   for (const li of sol){ opts += dockMoves(s).length / legalMoves(s).length; dec++; s = applyMove(s, li); }
   return { clean: clean / runs, win: win / runs, random: rnd / runs, green: dec ? opts / dec : 0 };
 }
-// Уровень после 20-го (бесконечный режим и проверка «1000-го уровня»): объект по кругу каталога, препятствия по номеру.
+// Уровень после среза (бесконечный режим и проверка «1000-го уровня»): корабль по классу главы (до 10-го — спутники,
+// дальше десятками чередуются истребители и крейсеры), внутри класса — по кругу; препятствия по номеру.
 function paramsFor(n){
-  const ids = Object.keys(OBJECTS), obj = ids[(n * 7) % ids.length], ch2 = /[1-9]/.test(OBJECTS[obj].map.join(''));
-  return { obj, solar: 0.4, debris: n % 4 === 1 ? 1 : 0, mirrors: n % 3 === 0 ? 2 : n % 3 === 1 ? 1 : 0, gates: ch2 || n % 5 === 0 ? 1 : 0 };
+  const cls = n <= 10 ? 1 : 2 + Math.floor((n - 11) / 10) % 2, ids = Object.keys(OBJECTS).filter(id => (OBJECTS[id].ch || 1) === cls);
+  const obj = ids[(n * 7) % ids.length], tr = /[1-9]/.test(OBJECTS[obj].map.join(''));
+  return { obj, solar: 0.4, debris: n % 4 === 1 ? 1 : 0, mirrors: n % 3 === 0 ? 2 : n % 3 === 1 ? 1 : 0, gates: tr || n % 5 === 0 ? 1 : 0 };
 }
 /* КОНЕЦ ЯДРА */
 // ---------------------------------------------------------------------------
@@ -664,13 +729,16 @@ function paramsFor(n){
 // clock() = реальное время × скорость + прогон drive(). Мировые координаты: клетка = 1, поле в XZ с центром в нуле.
 // ---------------------------------------------------------------------------
 const NAME = 'stykovka-3d';
-const VERSION = '1.3.0';
+const VERSION = '2.0.0';
 const T0 = performance.now();
 function log(kind, name, info){            // журнал [game] — одна строка на событие (§11)
   console.log('[game] ' + JSON.stringify({ t: +((performance.now() - T0) / 1000).toFixed(3), kind, name, info: info === undefined ? '' : String(info) }));
 }
-const SAVE_KEY = NAME + '.v1';
-function loadSave(){ try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; } catch (e) { return {}; } }
+// v2.0: свой ключ — прогресс v1.3 хранился по индексам 20 прежних вещей и засчитывался бы новым кораблям («Флот 20/10»).
+// Старое сохранение не трогаем; из него берём только настройку звука.
+const SAVE_KEY = NAME + '.v2';
+function loadSave(){ try { const v2 = JSON.parse(localStorage.getItem(SAVE_KEY)); if (v2) return v2;
+  const v1 = JSON.parse(localStorage.getItem(NAME + '.v1')); return v1 ? { muted: !!v1.muted } : {}; } catch (e) { return {}; } }
 function save(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(G.save)); } catch (e) {} }
 const RM = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
 
@@ -766,6 +834,16 @@ const Sfx = {
     if (streak >= 2) this.tone(PENTA[Math.min(PENTA.length - 1, streak + 2)], 260, 'triangle', 0.04, delay + 110);
     log('sound', 'lights');
   },
+  // «Щелчок роли» поверх стыковки (v2.0): сопло — вдох и низкий толчок, крыло — сервопривод, кабина — стеклянный звон, ствол — лязг
+  role(r, delay){
+    if (r === 'E' || r === 'B'){ this.hiss(280, 500, 2400, 0.12, delay, 1.2); this.tone(92, 240, 'sine', 0.16, delay, 150); }
+    else if (r === 'W' || r === 'R'){ this.tone(300, 240, 'sawtooth', 0.03, delay, 720); for (let k = 0; k < 3; k++) this.tone(2100 + k * 160, 10, 'square', 0.022, delay + 50 + k * 60); }
+    else if (r === 'K'){ this.tone(1319, 180, 'sine', 0.055, delay); this.tone(1976, 260, 'sine', 0.04, delay + 60); }
+    else if (r === 'X' || r === 'L'){ this.metal(520, 0.06, delay); this.hiss(90, 3200, 1200, 0.09, delay + 40, 3); }
+    else if (r === 'D' || r === 'A' || r === 'S'){ this.tone(660, 280, 'triangle', 0.045, delay, 990); }
+    else this.tone(880, 90, 'sine', 0.035, delay);
+    log('sound', 'role', r);
+  },
   mirror(k){ this.tone(1760 + k * 220, 160, 'sine', 0.09); this.tone(2640 + k * 330, 90, 'sine', 0.04, 10); },
   gate(open){ if (open){ this.hiss(380, 3000, 300, 0.2, 0, 2); this.tone(880, 320, 'sawtooth', 0.04, 0, 220); } else { this.tone(220, 200, 'sawtooth', 0.05, 0, 660); this.hiss(200, 300, 2500, 0.1, 0, 2); } },
   word(){ [0, 1, 2].forEach(k => this.tone(1568 + k * 400, 90, 'triangle', 0.06, 160 + k * 55)); },
@@ -822,39 +900,41 @@ function goto(screen, payload){
       return '<button data-act="lvl" data-li="' + i + '"' + (!isOpen(i) ? ' disabled' : '') + (i === G.save.level ? ' class="cur"' : '') + '>' + (i + 1) +
         '<span class="mini">' + [0, 1, 2].map(k => '<i class="' + (k < b ? 'on' : '') + '"></i>').join('') + '</span></button>'; };
     const ch1 = LEVELS.map((L, i) => i).filter(i => (LEVELS[i].ch || 1) === 1), ch2 = LEVELS.map((L, i) => i).filter(i => LEVELS[i].ch === 2);
-    card.innerHTML = '<img class="emblem" src="' + UI + 'ic-rocket.png" alt=""><h1>СТЫКОВКА<span>3D</span></h1>' +
-      '<p>Собери вещь по чертежу. Модуль летит прямо и встаёт у первого, чего коснётся.</p>' +
-      '<div class="levels"><div class="ch">Глава 1 · Голубая планета</div>' + ch1.map(cell).join('') + '<div class="ch">Глава 2 · Красная планета</div>' + ch2.map(cell).join('') + '</div>' +
+    const emb = R3.ready ? thumb(5, false) : '';                          // v2.0: эмблема — снимок истребителя в стиле A (кит GPT — мультяшная ракета)
+    card.innerHTML = '<img class="emblem' + (emb ? ' ship' : '') + '" src="' + (emb || UI + 'ic-rocket.png') + '" alt=""><h1>СТЫКОВКА<span>3D</span></h1>' +
+      '<p>Собери корабль по чертежу. Модуль летит прямо и встаёт у первого, чего коснётся.</p>' +
+      '<div class="levels"><div class="ch">Глава 1 · Голубая планета · зонды и спутники</div>' + ch1.map(cell).join('') + '<div class="ch">Глава 2 · Красная планета · корабли</div>' + ch2.map(cell).join('') + '</div>' +
       '<div class="row"><button class="b" data-act="play"><img src="' + UI + 'ic-play.png" alt=""><span>Играть</span></button></div>' +
-      '<div class="row"><button class="b navy" data-act="hangar"><img src="' + UI + 'ic-hangar.png" alt=""><span>Ангар ' + G.save.hangar.length + '/' + LEVELS.length + '</span></button>' +
+      '<div class="row"><button class="b navy" data-act="hangar"><img src="' + UI + 'ic-hangar.png" alt=""><span>Флот ' + G.save.hangar.length + '/' + LEVELS.length + '</span></button>' +
       '<button class="b navy" data-act="help"><span>Как играть</span></button></div>' +
       '<div class="row cheats">' + (G.save.unlockAll ? '<button class="cheat" data-act="relock">Чит включён · закрыть уровни</button>' : '<button class="cheat" data-act="unlock">Чит: открыть все уровни</button>') +
       ' <button class="cheat" data-act="wipe">Сбросить прогресс</button></div>';
   }
   if (screen === 'help') card.innerHTML = '<h2>Как играть</h2><ul class="help-list">' +
     '<li>Тапни модуль у края — он полетит прямо и встанет перед первым, чего коснётся.</li>' +
-    '<li>Заполни чертёж. <b>Капсула</b> — в голубой пунктир, <b>панель с крыльями</b> — в жёлтый, <b>ферма</b> — в длинный оранжевый.</li>' +
+    '<li>Заполни чертёж. <b>Жилой модуль</b> — в голубой пунктир, <b>панель</b> — в жёлтый, <b>ферма</b> — в длинный оранжевый.</li>' +
+    '<li>Встав на место, модуль становится частью корабля: на носу — кабиной, на хвосте — двигателем, сбоку — крылом.</li>' +
     '<li>Держи палец на модуле — увидишь, куда он встанет. Отпусти — полетит, уведи в сторону — отмена.</li>' +
-    '<li>Значок на углу боковой площадки — какой модуль в этой очереди следующий.</li>' +
+    '<li>Значок у бокового модуля — какой модуль в этой очереди следующий.</li>' +
     '<li>Мимо или не туда — минус батарейка, модуль вернётся. Отмена тоже стоит батарейку.</li>' +
     '<li>Порядок важен: модуль может занять чужое место и закрыть дорогу.</li>' +
-    '<li>Глава 2: отражатель поворачивает модуль, ферма длиной в две клетки, силовое поле пропускает после нескольких стыковок.</li>' +
-    '<li>Собранная вещь улетает в ангар.</li></ul>' +
+    '<li>Глава 2: обломки, ферма длиной в две клетки, отражатель поворачивает модуль, силовое поле пропускает после нескольких стыковок.</li>' +
+    '<li>Собранный корабль зажигает двигатели и улетает во флот.</li></ul>' +
     '<div class="row"><button class="b" data-act="menu"><span>Понятно</span></button></div>';
   if (screen === 'hangar'){
     // карточка показывается сразу; снимки вещей досниваются по одному за кадр (первый заход не стоит 20 чтений GPU подряд)
     const slots = LEVELS.map((L, i) => { const got = G.save.hangar.includes(i), src = G.thumbs[i + (got ? '' : 'h')] || '';
       return '<div class="' + (got ? '' : 'no') + '" data-li="' + i + '"><img src="' + src + '" alt=""' + (src ? '' : ' style="visibility:hidden"') + '><span>' + (got ? objName(i) : (i + 1) + '. ?') + '</span></div>'; }).join('');
     G.thumbQueue = LEVELS.map((L, i) => i).filter(i => !G.thumbs[i + (G.save.hangar.includes(i) ? '' : 'h')]);
-    card.innerHTML = '<h2>Ангар</h2><span class="count">Собрано ' + G.save.hangar.length + ' из ' + LEVELS.length + '</span>' +
+    card.innerHTML = '<h2>Флот</h2><span class="count">Кораблей ' + G.save.hangar.length + ' из ' + LEVELS.length + '</span>' +
       '<div class="hgrid">' + slots + '</div><div class="row"><button class="b" data-act="menu"><span>Назад</span></button></div>';
   }
   if (screen === 'win'){
     const s = G.s, last = s && s.li >= LEVELS.length - 1, n = s ? starsFor(s) : 3, src = s ? thumb(s.li, false) : '';   // вещь та же — снимок из кэша
     card.innerHTML = (src ? '<img class="shot" src="' + src + '" alt="">' : '') + '<h2>' + (s ? s.name : 'Объект') + ' собран' + (s && /а$/.test(s.name) ? 'а' : '') + '!</h2>' +
       '<div class="stars">' + [0, 1, 2].map(k => '<i class="' + (k < n ? 'on pop' : '') + '" style="animation-delay:' + (0.2 + k * 0.25) + 's"></i>').join('') + '</div>' +
-      '<span class="count">В ангаре ' + G.save.hangar.length + ' из ' + LEVELS.length + '</span><p>' + (payload || '') + '</p>' +
-      '<div class="row">' + (last ? '<button class="b" data-act="hangar"><img src="' + UI + 'ic-hangar.png" alt=""><span>В ангар</span></button>' : '<button class="b" data-act="next"><span>Дальше</span><img src="' + UI + 'ic-next.png" alt=""></button>') +
+      '<span class="count">Во флоте ' + G.save.hangar.length + ' из ' + LEVELS.length + '</span><p>' + (payload || '') + '</p>' +
+      '<div class="row">' + (last ? '<button class="b" data-act="hangar"><img src="' + UI + 'ic-hangar.png" alt=""><span>Во флот</span></button>' : '<button class="b" data-act="next"><span>Дальше</span><img src="' + UI + 'ic-next.png" alt=""></button>') +
       '<button class="b navy" data-act="retry"><img src="' + UI + 'ic-restart.png" alt=""><span>Ещё раз</span></button></div>';
     for (let k = 0; k < n; k++) starTimers.push(setTimeout(() => { Sfx.star(k); buzz(12); }, 200 + k * 250));
   }
@@ -951,6 +1031,7 @@ function startLevel(li){
   li = Math.max(0, Math.min(LEVELS.length - 1, li));
   G.s = createState(li); G.flights = []; G.fx = []; G.parts = []; G.cellFx = {}; G.cellYaw = {}; G.sched = []; G.mirrorHit = {}; G.pending.clear(); G.laneBusy = {}; G.laneSlide = {};
   G.docksShown = 0; G.dockAt = 0; G.waves = []; G.knocks = []; G.hitStop = 0; G.runId = (G.runId || 0) + 1;
+  G.R = roleOpen(shipRoles(layoutOf(li)), G.s); G.eng = enginePts(G.s, G.R); G.ebursts = []; G.ekey = '';   // v2.0: роли клеток, сопла, энергия
   G.press = null; G.ending = null; G.winAt = 0; G.loseAt = 0; G.liftAt = 0; G.fly = null; Sfx.engineStop(); G.decoAt = []; G.streak = 0; G.lastInput = clock(); G.hintKey = '';
   G.introAt = RM ? clock() - CFG.INTRO_MS : clock();
   G.save.level = li; save();
@@ -1171,6 +1252,12 @@ function arrive(fl, now){
     const heavy = MOD_LEN[fl.kind] > 1, quick = now - (G.dockAt || -1e9) < CFG.HITSTOP_GAP_MS, latchAt = now + CFG.LATCH_MS * 0.8, a0 = ang2(d);
     const mid = heavy && fl.cells[1] !== undefined ? { x: (cx(fl.cells[0]) + cx(fl.cells[1])) / 2, z: (cz(fl.cells[0]) + cz(fl.cells[1])) / 2 } : p;
     G.docksShown++; G.dockAt = now;
+    // v2.0: энергия бежит от ядра по кораблю; на смене общего модуля ролью — вспышка и «щелчок роли»
+    G.ebursts.push({ t0: now }); if (G.ebursts.length > 3) G.ebursts.shift();
+    const role = G.R.r[fl.cell] || '';
+    G.fx.push({ type: 'flash', x: mid.x, z: mid.z, t0: now + CFG.ROLE_SWAP - 20, t1: now + CFG.ROLE_SWAP + 260, r: heavy ? 1.2 : 0.85, col: '#9ff4ff', y: 0.6 });
+    if (role === 'E' || role === 'B'){ const e = G.eng.find(q => q.cells.includes(fl.cell));
+      if (e) emit('puff', e.x, Y_MOD, e.z, 6, { t0: now + CFG.ROLE_SWAP + 60, ang: e.yaw, spread: 1.4, v: 2.4, drag: 5, life: 420, r: 0.09, col: '#c9e9ff', up: 0.4 }); }
     if (!RM){
       G.waves.push({ t0: now + CFG.LATCH_MS, x: seam.x, z: seam.z }); if (G.waves.length > 4) G.waves.shift();
       G.knocks.push({ t0: now, x: seam.x, z: seam.z, d, amp: heavy ? 1.4 : 1 }); if (G.knocks.length > 4) G.knocks.shift();
@@ -1193,7 +1280,7 @@ function arrive(fl, now){
     G.streak = s.dead ? 0 : G.streak + 1;                 // ход в тупик не хвалим
     const st = Math.max(0, G.streak - 1);
     Sfx.dock(heavy); Sfx.latch(CFG.LATCH_MS * 0.8); Sfx.lights(st, CFG.LATCH_MS + 40);     // лязг → щелчки защёлок → «динь», растущий по серии (у любого модуля)
-    if (fl.kind === SOLAR) Sfx.unfold(CFG.LATCH_MS);
+    Sfx.role(role, CFG.ROLE_SWAP);
     buzz(heavy ? [34, 174, 12, 50, 18] : [24, 184, 12, 50, 16]);                          // удар → защёлки → питание
     gatesOpened(s, now);
     if (!isWin(s) && !s.dead && CFG.STREAK_WORDS[G.streak]){ word(CFG.STREAK_WORDS[G.streak], p.x, p.z, getCss('--lamp')); Sfx.word(); }
@@ -1294,13 +1381,11 @@ function finishEnding(now){
       G.winAt = now; Sfx.win(); buzz([20, 40, 20]); log('fx.start', 'lights');
       const c0 = { x: cx(s.core[0]), z: cz(s.core[0]) };
       G.fx.push({ type: 'ring', x: c0.x, z: c0.z, t0: now, t1: now + 900, r0: 0.5, r1: 4, col: '#b8f4ff' });
-      // детали вида достраиваются по одной, все вместе — не дольше END_DECO_SPAN
-      const n = s.deco.length, step = n ? Math.min(CFG.DECO_STEP_MS, CFG.END_DECO_SPAN / n) : 0;
-      G.decoAt = s.deco.map((d, k) => now + CFG.END_DECO_AT + k * step);
-      G.decoAt.forEach((t, k) => G.sched.push({ at: t, fn: () => { Sfx.deco(k); const p = decoPos(s.deco[k]); emit('spark', p.x, 0.5, p.z, 8, { spread: 6.28, v: 2, drag: 6, life: 320, r: 0.04, col: '#7fe9ff', up: 1.5 });
-        G.fx.push({ type: 'flash', x: p.x, z: p.z, t0: t, t1: t + 220, r: 0.5, col: '#bff3ff', y: 0.3 }); log('event', 'deco', s.deco[k].t); } }));
+      // v2.0: деталей вида нет (нос, сопла и крылья — роли); «всё на максимум» — энергия волной от ядра до концов, факелы разгораются
+      G.decoAt = [];
+      for (const e of G.eng) G.sched.push({ at: now + 120 + e.d * CFG.WIN_WAVE_MS, fn: () => { emit('spark', e.x, Y_MOD, e.z, 6, { ang: e.yaw, spread: 1.6, v: 2.2, drag: 6, life: 300, r: 0.04, col: e.booster ? '#ffd27a' : '#bff3ff', up: 1 }); } });
       // постановка «запуск»: зажигание → отрыв → уход (вспышка) → карточка
-      const f = G.fly = makeFly(s, now + CFG.END_DECO_AT + n * step + (n ? 90 : 0));
+      const f = G.fly = makeFly(s, now + CFG.END_POWER_MS);
       G.liftAt = f.liftAt;
       G.sched.push({ at: f.ignAt, fn: () => flyIgnite(f) }, { at: f.liftAt, fn: () => flyLiftoff(f) }, { at: f.exitAt, fn: () => flyExit(f) });
       e.at = f.liftAt + CFG.LIFT_MS + CFG.END_CARD_MS; return;
@@ -1341,11 +1426,20 @@ function skipEnding(){
 // Без сопел (станция, спутник, кольцо) — заряжается, приподнимается, раскручивается и уходит в точку над полем.
 // Вся постановка — функция времени (flyXf): кадр ничего не копит, шлейф берёт прошлые положения той же функцией.
 const flyProfile = (u) => 0.1 * u + 0.9 * Math.pow(u, 3.2);                            // путь ракеты: лёгкий отрыв, потом разгон
-function engineOut(d){ const p = decoPos(d); return { x: p.x + Math.cos(p.yaw) * 0.31, z: p.z - Math.sin(p.yaw) * 0.31, yaw: p.yaw }; }   // срез сопла и курс струи
+// Сопла корабля (v2.0 — по ролям): двигатель E — срез сопла под клеткой (короче, если сзади сосед), ускоритель B — под задней клеткой фермы.
+// yaw — курс струи (назад, вниз по экрану), d — шагов от ядра (волна «всё на максимум»), cells — клетки модуля
+function enginePts(s, R){
+  const out = [], c0 = s.core[0], dist = (i) => Math.abs(i % s.w - c0 % s.w) + Math.abs(Math.floor(i / s.w) - Math.floor(c0 / s.w));
+  for (let i = 0; i < s.bp.length; i++){
+    if (R.r[i] === 'E') out.push({ x: cx(i), z: cz(i) + 0.76 * (R.open[i][1] ? 1 : 0.7), yaw: -YA, d: dist(i), cells: [i], booster: false });
+    else if (R.r[i] === 'B'){ const j = partner(i); if (j < i) continue; const rear = Math.max(i, j); out.push({ x: cx(i), z: (cz(i) + cz(j)) / 2 + 1.21, yaw: -YA, d: dist(rear), cells: [i, j], booster: true }); }
+  }
+  return out;
+}
 function makeFly(s, ignAt){
-  let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9, ex = 0, ez = 0; const eng = [];
+  let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9, ex = 0, ez = 0; const eng = G.eng || [];
   for (let i = 0; i < s.occ.length; i++) if (s.base[i] === CORE || s.occ[i] > 0){ x0 = Math.min(x0, cx(i)); x1 = Math.max(x1, cx(i)); z0 = Math.min(z0, cz(i)); z1 = Math.max(z1, cz(i)); }
-  s.deco.forEach((d, k) => { if (d.t !== 'engine' || !d.d) return; const p = decoPos(d); ex -= Math.cos(p.yaw); ez += Math.sin(p.yaw); eng.push(k); });   // тяга — против струи
+  for (const e of eng){ ex -= Math.cos(e.yaw); ez += Math.sin(e.yaw); }                                  // тяга — против струи
   const c = { x: (x0 + x1) / 2, z: (z0 + z1) / 2 }, hx = (x1 - x0) / 2 + 0.5, hz = (z1 - z0) / 2 + 0.5, el = Math.hypot(ex, ez);
   const f = { kind: RM ? 'calm' : el > 0.5 ? 'rocket' : 'station', ignAt, liftAt: ignAt + CFG.IGNITE_MS, exitAt: 0, c, R: Math.hypot(hx, hz), eng, h: [0, -1], D: 0, back: 0, ex: c.x, ez: c.z, skip: false };
   const q0 = R3.project(c.x, Y_MOD, c.z), cp = R3.cellPx() || 50, top = document.querySelector('header').getBoundingClientRect().bottom - $('game').getBoundingClientRect().top;
@@ -1394,7 +1488,7 @@ const SMOKE = ['#eef1ff', '#ffe2c4', '#cfd6f5'], CONFETTI = ['#46e6ff', '#ffd23d
 function flyIgnite(f){
   const now = clock(), rocket = f.kind === 'rocket';
   Sfx.engine(!rocket, CFG.IGNITE_MS, CFG.LIFT_MS); buzz([10, 30, 12, 30, 16, 30, 22]); log('fx.start', 'ignite', f.kind);
-  if (rocket) for (const k of f.eng){ const e = engineOut(G.s.deco[k]);                 // вспышка и клуб пара у каждого сопла
+  if (rocket) for (const e of f.eng){                                                 // вспышка и клуб пара у каждого сопла
     G.fx.push({ type: 'flash', x: e.x, z: e.z, t0: now, t1: now + 280, r: 0.8, col: '#ffd9a0', y: 0.3 });
     emit('smoke', e.x, 0.2, e.z, 7, { ang: e.yaw, spread: 2.6, v: 3, drag: 3.4, life: 700, r: 0.17, cols: SMOKE }); }
   else if (f.kind === 'station') for (const dl of [0, 130]) G.fx.push({ type: 'ring', x: f.c.x, z: f.c.z, t0: now + dl, t1: now + dl + CFG.IGNITE_MS, r0: f.R + 1.6, r1: 0.5, col: '#8fe9ff', grow: 1, a: 0.6 });   // заряд: кольца сходятся к вещи
@@ -1404,7 +1498,7 @@ function flyLiftoff(f){
   Sfx.liftoff(!rocket); buzz([40, 20, 70]); log('fx.start', 'liftoff', f.kind);
   if (f.kind === 'calm') return;
   G.fx.push({ type: 'ring', x: f.c.x, z: f.c.z, t0: now, t1: now + 420, r0: 0.6, r1: f.R + 1.3, col: rocket ? '#ffe2b8' : '#b8f4ff', a: 0.45 });
-  if (rocket) for (const k of f.eng){ const e = engineOut(G.s.deco[k]);
+  if (rocket) for (const e of f.eng){
     emit('streak', e.x, Y_MOD, e.z, 9, { ang: e.yaw, spread: 1.1, v: 7, drag: 3, life: 300, r: 0.04, col: '#ffd27a' });
     emit('smoke', e.x, 0.2, e.z, 6, { ang: e.yaw, spread: 3, v: 3.4, drag: 3.2, life: 760, r: 0.2, cols: SMOKE }); }
   else emit('streak', f.c.x, Y_MOD, f.c.z, 20, { spread: 6.28, v: 6, drag: 3.5, life: 380, r: 0.04, col: '#bff6ff' });
@@ -1494,56 +1588,118 @@ function colors3(){
     red: c('#ff5a6e'), redTint: c('#ff8080'), dim: c('#4a4f78'), white: c('#ffffff'),
     bpHull: c('#46e6ff'), bpSolar: c('#ffd23d'), bpTruss: c('#ff9a3d'), ok: c('#5cf28a'), bad: c('#ff5a6e'), holo: c('#5fe8ff'),
     trail: [c('#9fdcff', 0.7), c('#9fdcff', 0.4), c('#9fdcff', 0.18)], ghostOk: c('#5cf28a', 0.9), ghostBad: c('#ff5a6e', 0.9), fieldK: [0, 1, 2, 3].map(k => c('#7a46ff', 0.4 + 0.06 * k)), holoK: [0.3, 0.45, 0.6, 0.75, 0.8].map(k => c('#5fe8ff', k)), holoRing: [0.15, 0.25, 0.35].map(k => c('#5fe8ff', k)),
-    flame: c('#ffb347'), flameCore: c('#fff6d8', 1.2), flameCool: c('#7fd0ff'), field: c('#9a62ff'), lampMast: c('#ff6a3d', 1.4), shadow: c('#ffffff'), gold: c('#ffd36b') };
+    flame: c('#5fcfff', 1.15), flameCore: c('#eaf8ff', 1.3), flameCool: c('#7fd0ff'), flameOr: c('#ffa23f', 1.1), flameOrCore: c('#fff2d6', 1.2), field: c('#9a62ff'), lampMast: c('#ff6a3d', 1.4), shadow: c('#ffffff'), gold: c('#ffd36b'),
+    // v2.0: энергия (бирюза) — 24 ступени яркости, без новых цветов в кадре; общий модуль в очереди — тусклая
+    en: Array.from({ length: 24 }, (_, k) => c('#3fe6ff', 2.2 * k / 23)), enQ: c('#3fe6ff', 0.55), enOff: c('#1a2a40') };
+}
+// Яркость энергии k (0…2.2) → цвет из ступеней
+const enCol = (k) => C3.en[Math.max(0, Math.min(23, Math.round(k / 2.2 * 23)))];
+// Дерево энергии от ядра по кораблю: d — шагов от ядра, par — откуда пришла энергия. Линии рисуются только по рёбрам дерева
+// (по всем швам выходила «плата»). Родитель — сначала сосед по столбцу, потом по ряду: у симметричного корабля дерево симметрично
+function energyTree(w, N, core, st){
+  const d = new Array(N).fill(-1), par = new Array(N).fill(-1), q = [core]; d[core] = 0;
+  while (q.length){ const i = q.shift(), x = i % w;
+    for (const j of [i - w, i + w, x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1]) if (j >= 0 && j < N && d[j] < 0 && st(j)){ d[j] = d[i] + 1; par[j] = i; q.push(j); } }
+  // у фермы обе клетки — один модуль: энергия входит в ближнюю к ядру клетку, дальняя питается от неё
+  return { d, par, tree: (i, j) => par[j] === i || par[i] === j };
+}
+function energyMap(){
+  const s = G.s, key = s.hist.length + ':' + G.pending.size + ':' + s.li;
+  if (G.ekey === key && G.etree) return G.etree.d; G.ekey = key;
+  G.etree = energyTree(s.w, s.occ.length, s.core[0], (i) => (s.base[i] === CORE || s.occ[i] > 0) && !G.pending.has(i));
+  return G.etree.d;
+}
+// Энергия на расстоянии d шагов от ядра: ровный ток + импульс раз в ENERGY_PERIOD + волна каждой стыковки + «всё на максимум» на победе
+function enAt(d, now, winU, fresh){
+  if (G.loseAt) return C3.enOff;
+  if (fresh) return enCol(0.2);
+  let k = 0.62;
+  const w = (now % CFG.ENERGY_PERIOD) - d * CFG.ENERGY_STEP * 2.2; if (w > 0 && w < 260) k += 0.45 * Math.sin(w / 260 * Math.PI);
+  for (const b of G.ebursts || []){ const v = now - b.t0 - d * CFG.ENERGY_STEP; if (v > 0 && v < 200) k += 0.9 * Math.sin(v / 200 * Math.PI); }
+  if (winU >= 0){ const v = winU - d * CFG.WIN_WAVE_MS; if (v > 0) k = Math.max(k, 1.25 + 0.15 * Math.sin(now / 90) + (v < 200 ? 0.6 * Math.sin(v / 200 * Math.PI) : 0)); }
+  return enCol(k);
 }
 
 // --- 3D-кадр: игра расставляет модели в пулы (R3.put) по своему состоянию и дедлайнам ---
-// Детали вида: точка крепления у края клетки (мир) и курс наружу
-function decoPos(d){
-  const s = G.s, x = d.x - (s.w - 1) / 2, z = d.y - (s.h - 1) / 2, v = d.d ? DIR[{ T: 'B', B: 'T', L: 'R', R: 'L' }[d.d]] : [0, 0];   // DIR[сторона входа] — внутрь; наружу — противоположная
-  return { x: x + v[0] * 0.5, z: z + v[1] * 0.5, yaw: d.d ? yawOf(v) : 0, cx: x, cz: z };
-}
-const DECO_MODEL = { nose: 'nose', engine: 'engine', fin: 'fin', dish: 'dish', mast: 'mast', leg: 'leg', ring: 'ringDeco' };
+// v2.0: деталей вида (нос, сопла, стабилизаторы, тарелки — v1.x) у кораблей нет: это роли модулей (putRole). deco в ядре оставлен для
+// совместимости (у всех уровней пуст).
 // Перенос всей вещи при улёте (flyXf): поворот вокруг центра вещи, масштаб, сдвиг по полю и подъём к камере
 function X(xf, x, y, z){
   if (!xf) return [x, y, z];
   const rx = x - xf.cx, rz = z - xf.cz, c = Math.cos(xf.rot), s = Math.sin(xf.rot);
   return [xf.cx + xf.dx + (rx * c + rz * s) * xf.sc, y * xf.sc + xf.up, xf.cz + xf.dz + (rz * c - rx * s) * xf.sc];
 }
-function putM(name, x, y, z, yaw, sc, tint, lamp, mode, xf, rx, rz){
+function putM(name, x, y, z, yaw, sc, tint, lamp, mode, xf, rx, rz, en){
   const p = X(xf, x, y, z), k = xf ? xf.sc : 1;
-  R3.put(name, R3.mat(p[0], p[1], p[2], (yaw || 0) + (xf ? xf.rot : 0), Array.isArray(sc) ? sc.map(v => v * k) : (sc === undefined ? 1 : sc) * k, rx, rz), tint, lamp, mode);
+  R3.put(name, R3.mat(p[0], p[1], p[2], (yaw || 0) + (xf ? xf.rot : 0), Array.isArray(sc) ? sc.map(v => v * k) : (sc === undefined ? 1 : sc) * k, rx, rz), tint, lamp, mode, en);
 }
 // Плоское свечение, которое едет вместе с вещью
 function glowX(xf, x, z, size, col, alpha){ const p = X(xf, x, 0, z); R3.quad('glow', p[0], 0.03 + (xf ? xf.up : 0), p[2], size * (xf ? xf.sc : 1), size * (xf ? xf.sc : 1), 0, col, alpha); }
-// Один модуль (капсула/панель/ферма) в точке: курс, масштаб, раскрытие крыльев (0 — сложены, 1 — раскрыты), свет окон
+// Общий модуль по типу (очередь, полёт, до раскрытия роли): жилой / панель / ферма; ферма сложена (очередь) или раздвигается (полёт)
 function putModule(kind, x, z, yaw, sc, o){
   o = o || {};
-  const xf = o.xf, y = o.y || 0, sq = o.sq || [1, 1, 1], ln = kind === TRUSS && o.len ? o.len : 1, s3 = [sc * sq[0] * ln, sc * sq[1], sc * sq[2]];   // ln — ферма сложена (очередь) или раздвигается (полёт)
-  if (o.mode){                                             // призрак / голограмма
-    const nm = kind === TRUSS ? 'truss' : kind === SOLAR ? 'solarHub' : 'hull';
-    putM(nm, x, y, z, yaw, s3, o.col, null, o.mode, xf);
-    if (kind === SOLAR) for (const side of [-1, 1]) putWing(x, y, z, yaw, s3, side, o.unfold === undefined ? 1 : o.unfold, o.col, o.mode, xf);
-    return;
-  }
-  if (kind === TRUSS) putM('truss', x, y, z, yaw, s3, o.tint, o.lamp || C3.lampMast, null, xf);
-  else if (kind === SOLAR){ putM('solarHub', x, y, z, yaw, s3, o.tint, o.lamp || C3.cool, null, xf); for (const side of [-1, 1]) putWing(x, y, z, yaw, s3, side, o.unfold === undefined ? 1 : o.unfold, o.tint, null, xf); }
-  else putM('hull', x, y, z, yaw, s3, o.tint, o.lamp || C3.cool, null, xf);
+  const xf = o.xf, y = o.y || 0, sq = o.sq || [1, 1, 1], ln = kind === TRUSS && o.len ? o.len : 1, s3 = [sc * sq[0] * ln, sc * sq[1], sc * sq[2]];
+  const nm = kind === TRUSS ? 'trussQ' : kind === SOLAR ? 'panQ' : 'habQ';
+  if (o.mode){ putM(nm, x, y, z, yaw, s3, o.col, null, o.mode, xf); return; }      // призрак / шлейф
+  putM(nm, x, y, z, yaw, s3, o.tint, o.lamp || C3.cool, null, xf, 0, 0, o.en || C3.enQ);
   if (o.nozzle){                                           // сопло сзади (+ пламя): очередь и полёт
-    const back = (kind === TRUSS ? 0.93 * ln : kind === SOLAR ? 0.37 : 0.48) * sc, bx = x - Math.cos(yaw) * back, bz = z + Math.sin(yaw) * back;
-    putM('nozzle', bx, Y_MOD * sc + y, bz, yaw, sc * (o.nz === undefined ? 1 : o.nz), o.tint, null, null, xf);
+    const back = (kind === TRUSS ? 0.93 * ln : kind === SOLAR ? 0.42 : 0.46) * sc, bx = x - Math.cos(yaw) * back, bz = z + Math.sin(yaw) * back;
+    putM('nozzle', bx, Y_MOD * sc + y, bz, yaw, sc * (o.nz === undefined ? 1 : o.nz), o.tint, null, null, xf, 0, 0, C3.en[14]);
     if (o.flame > 0) putM('flame', bx - Math.cos(yaw) * 0.16 * sc, Y_MOD * sc + y, bz + Math.sin(yaw) * 0.16 * sc, yaw, [sc * o.flame, sc * (0.7 + 0.3 * o.flame), sc * (0.7 + 0.3 * o.flame)], o.flameCol || C3.flame, null, null, xf);
   }
 }
-// Крыло панели: шарнир у верхнего края хаба; сложено — лежит на хабе, перевернувшись на 180° (второе крыло — поверх первого),
-// раскрыто — лежит в сторону
-function putWing(x, y, z, yaw, s3, side, unfold, tint, mode, xf){
-  // по очереди, чтобы не проходили друг сквозь друга: сначала верхнее крыло стопки (side −1), потом нижнее; складываются в обратном порядке
-  const u = unfold >= 1 ? unfold : side < 0 ? Math.min(1, unfold / 0.6) : Math.max(0, (unfold - 0.4) / 0.6);
-  const ang = (1 - u) * Math.PI * 0.985, hz = 0.17 * s3[2], lift = side < 0 ? 0.06 * s3[1] * (1 - easeU(u * 3)) : 0;
-  const lx = Math.sin(yaw) * hz * side, lz = Math.cos(yaw) * hz * side;                    // ось +Z модели в мире: (sin yaw, cos yaw)
-  // крыло уходит в +Z (side 1) или −Z (side −1): для −1 разворот на π вокруг Y
-  putM('solarWing', x + lx, (Y_MOD + 0.235) * s3[1] + y + lift, z + lz, yaw + (side < 0 ? Math.PI : 0), s3, tint, null, mode, xf, -ang, 0);
+// Выход роли за клетку (нос, сопло, крыло) — только в пустую сторону: ядро считает пустым всё, что не корабль, а оболочка ещё
+// закрывает стороны с препятствием (обломок, отражатель, поле) — роль по чертежу не меняется, меняется только длина выступа
+function roleOpen(R, lay){
+  const w = lay.w, h = lay.h, open = R.open.map((o, i) => { if (!o) return o; const x = i % w, y = (i - x) / w;
+    return o.map((v, k) => { if (!v) return v; const [dx, dy] = [[0, -1], [0, 1], [-1, 0], [1, 0]][k], X2 = x + dx, Y2 = y + dy;
+      return !(X2 >= 0 && Y2 >= 0 && X2 < w && Y2 < h && lay.base[Y2 * w + X2] !== EMPTY); }); });
+  return { r: R.r, side: R.side, open };
+}
+// --- v2.0: роль модуля в корабле. Курс «нос вверх»: +X модели → −Z мира. loc — точка в осях модуля (lx вперёд, lz вправо) → мир ---
+const YA = Math.PI / 2;
+const loc = (x, z, yaw, lx, lz) => [x + Math.cos(yaw) * lx + Math.sin(yaw) * lz, z - Math.sin(yaw) * lx + Math.cos(yaw) * lz];
+// Роль одной клетки (жилой или панель): основа на клетке + выдвижная часть по u (0 — сложена, 1 — раскрыта). Выход за клетку —
+// только в пустую сторону (R.open): нос — если спереди пусто, сопло — если сзади, крыло-законцовка — если сбоку
+function putRole(R, i, x, z, u, o){
+  const r = R.r[i], op = R.open[i] || [1, 1, 1, 1], sc = o.sc || 1, xf = o.xf, ue = easeOut(u), ub = RM ? easeU(u) : easeOutBack(u), done = u >= 1;
+  const M = (nm, lx, lz, yaw, s3, rx) => { const p = loc(x, z, YA, lx * sc, lz * sc); putM(nm, p[0], 0, p[1], yaw === undefined ? YA : yaw, s3 || sc, o.tint, o.lamp, o.mode, xf, rx || 0, 0, o.en); };
+  // кабина: нос выезжает вперёд из корпуса (перенос, размер постоянный); спереди сосед или препятствие — нос короче
+  if (r === 'K'){ if (done) M(op[0] ? 'rKF' : 'rKFs', 0, 0); else { M('rK', 0, 0); M('rKnose', -0.45 * (1 - ue), 0, YA, [sc * (op[0] ? 1 : 0.62), sc, sc]); } }
+  // двигатель: сопло выезжает назад из кожуха
+  else if (r === 'E'){ if (done) M(op[1] ? 'rEF' : 'rEFs', 0, 0); else { M('rE', 0, 0); M('rEnoz', 0.36 * (1 - ue), 0, YA, [sc * (op[1] ? 1 : 0.7), sc, sc]); } }
+  else if (r === 'D'){ M('rD', 0, 0); M('rDdome', 0, 0, YA + (o.now || 0) / 1400, [sc, sc * Math.max(0.05, ub), sc]); }
+  // крыло: стоит на шарнире у корня и опускается в плоскость (сверху — раскладывается наружу); отскок — углом, не длиной
+  else if (r === 'W'){ const sd = R.side[i] || 1, nm = (sd > 0 ? 'rWR' : 'rWL') + ((sd < 0 ? op[2] : op[3]) ? '' : 'i');
+    if (done) M(nm + 'F', 0, 0); else { M('rWroot', 0, -0.3 * sd); M(nm, 0, -0.42 * sd, YA, sc, -sd * (1 - ub) * Math.PI / 2 * 0.98); } }
+  else if (r === 'R'){ if (done) M('rRF', 0, 0); else { M('rR', 0, 0); M('rRfins', 0, 0, YA, [sc, sc, sc * Math.max(0.1, ue)]); } }
+  else if (r === 'A' || r === 'S'){ M('rA', 0, 0); M('rAdish', 0, 0, YA + (o.now || 0) / 3000, [sc, sc * Math.max(0.05, ub), sc]); }
+  else if (r === 'P') M('rP', 0, 0);
+  else M('rH', 0, 0);
+}
+// Роль фермы (пара клеток, центр x,z): продольная — нос по оси (хребет, ускоритель со сдвигом сердечника и соплом, таран с прожектором),
+// поперечная — наружу (пилон, пилон с орудием: ствол выезжает). Раскрытая — одной моделью
+function putTrussRole(r, vert, side, x, z, u, o){
+  const sc = o.sc || 1, yaw = vert ? YA : (side < 0 ? Math.PI : 0), ue = easeOut(u), sq = o.sq || [1, 1, 1], done = u >= 1;
+  const M = (nm, lx, s3) => { const p = loc(x, z, yaw, lx * sc, 0); putM(nm, p[0], 0, p[1], yaw, s3 || sc, o.tint, o.lamp, o.mode, o.xf, 0, 0, o.en); };
+  const s3 = [sc * sq[0], sc * sq[1], sc * sq[2]], F = { B: 'rTBF', L: 'rTLF', X: 'rTXF' }[r];
+  if (done){ M(F || 'rT', 0, s3); return; }
+  M('rT', 0, s3);
+  if (r === 'B') M('rTB', 0.55 * (1 - ue), [sc * (0.5 + 0.5 * ue), sc, sc]);
+  else if (r === 'L') M('rTL', -0.35 * (1 - ue));
+  else if (r === 'X') M('rTX', -0.42 * (1 - ue));
+}
+// Срез сопла сейчас: сопло двигателя и ускорителя выезжает при раскрытии (ue 0..1) — факел и пар идут от текущего среза, а не от конечного
+function nozzleAt(e, ue){
+  if (e.booster){ const lx = 0.55 * (1 - ue) - 1.21 * (0.5 + 0.5 * ue); return { x: e.x, z: e.z - 1.21 - lx, yaw: e.yaw, booster: true }; }
+  return { x: e.x, z: e.z - 0.36 * (1 - ue), yaw: e.yaw, booster: false };
+}
+// Факел сопла (поле: короткий; финал: длинный) и свечение у среза
+function putFlame(e, len, wd, a, xf){
+  const col = e.booster ? C3.flameOr : C3.flame, core = e.booster ? C3.flameOrCore : C3.flameCore;
+  putM('flame', e.x, Y_MOD, e.z, e.yaw + Math.PI, [len, wd, wd], col, null, null, xf);
+  putM('flame', e.x, Y_MOD, e.z, e.yaw + Math.PI, [len * 0.55, wd * 0.55, wd * 0.55], core, null, null, xf);
+  glowX(xf, e.x + Math.cos(e.yaw) * 0.25, e.z - Math.sin(e.yaw) * 0.25, 0.9 + 0.5 * len / 2, col, a);
 }
 
 function render3D(now){
@@ -1598,7 +1754,7 @@ function render3D(now){
   const cu = easeOutBack((now - G.introAt) / 420);
   if (cu > 0 && !gone){
     const kc = knock(coreX, coreZ), kx = coreX + kc[0], kz = coreZ + kc[1], wc = dead ? 0 : waveAt(coreX, coreZ), cs = cu * (1 + CFG.WAVE_POP * wc);
-    putM('core', kx, 0, kz, 0, cs, tintDead, dead ? C3.off : (winU >= 0 && winU < 400) || lampOf(c0, null) ? C3.coreHot : C3.core, null, xf);
+    putM('core', kx, 0, kz, 0, cs, tintDead, dead ? C3.off : (winU >= 0 && winU < 400) || lampOf(c0, null) ? C3.coreHot : C3.core, null, xf, 0, 0, enAt(0, now, winU, false));
     putM('coreRing', kx, 0, kz, now / 900, cs, null, dead ? C3.off : C3.core, null, xf);
     glowX(xf, kx, kz, 1.5 * cu, C3.core, dead ? 0.08 : 0.24 + 0.06 * Math.sin(now / 500) + 0.3 * wc);   // ореол не шире полутора клеток: не засвечивает соседние гнёзда
     shadowAt(coreX, coreZ, 1.25 * cu, xf);
@@ -1618,39 +1774,44 @@ function render3D(now){
       if (!open) putM('field', x, 0, z, 0, [u, u * (0.95 + 0.05 * Math.sin(now / 90)), u], C3.fieldK[Math.floor((now / 120 + i) % 4)]);
     }
   }
-  // модули станции (летящие — нет: их рисует полёт)
+  // модули корабля (летящие — нет: их рисует полёт). v2.0: прилетел общий модуль — удар, магнит, защёлки, доворот к оси; под
+  // защёлками (ROLE_SWAP) он сменяется своей ролью, и роль раскрывается (ROLE_MS); энергия бежит от ядра по уже соединённым
+  const R = G.R, ed = energyMap(), YT = (vert) => vert ? YA : 0;
   for (let i = 0; i < s.occ.length && !gone; i++){
     const k = s.occ[i]; if (k <= 0 || G.pending.has(i)) continue;
-    let x = cx(i), z = cz(i);
-    if (k === TRUSS){ const j = partner(i); if (j < i) continue; x = (x + cx(j)) / 2; z = (z + cz(j)) / 2; }
-    const f = G.cellFx[i], yaw0 = G.cellYaw[i] !== undefined ? G.cellYaw[i] : 0;
-    let yaw = yaw0, sq = [1, 1, 1], unfold = 1, lamp = k === TRUSS ? C3.lampMast : C3.lit, tint = tintDead;
+    let x = cx(i), z = cz(i), vert = false, j = i;
+    if (k === TRUSS){ j = partner(i); if (j < i) continue; vert = Math.abs(j - i) !== 1; x = (x + cx(j)) / 2; z = (z + cz(j)) / 2; }
+    const f = G.cellFx[i], t = f ? now - f.t0 : 1e9;
+    let sq = [1, 1, 1], lamp = C3.lit, tint = tintDead, yaw = YA;
     if (f){
       // удар: модуль сжимается вдоль оси, упираясь в шов, и отскакивает затухающей пружиной (под reduced-motion — одно мягкое сжатие)
-      const t = now - f.t0, sq1 = RM ? -0.2 * bump(t / CFG.SQUASH_MS) : -CFG.SQUASH_U * Math.sin(t / 27) * Math.exp(-t / 80), push = -sq1 * (k === TRUSS ? 0.9 : 0.45);
+      const sq1 = RM ? -0.2 * bump(t / CFG.SQUASH_MS) : -CFG.SQUASH_U * Math.sin(t / 27) * Math.exp(-t / 80), push = -sq1 * (k === TRUSS ? 0.9 : 0.45);
       sq = [1 + sq1, 1 - 0.55 * sq1, 1 - 0.55 * sq1]; x += f.d[0] * push; z += f.d[1] * push;
-      yaw = yaw0 + f.twist * Math.exp(-t / 70) * Math.cos(t / 38);                  // магнит доворачивает перекос пружиной
-      if (k === SOLAR) unfold = CFG.WING_QUEUE + (1 - CFG.WING_QUEUE) * easeOutBack((t - CFG.LATCH_MS * 0.8) / CFG.UNFOLD_MS);
+      // магнит доворачивает перекос пружиной, затем модуль доворачивается к оси корабля (часть превращения)
+      const tgt = axisYaw(f.yaw, k === TRUSS ? YT(vert) : YA);
+      yaw = f.yaw + (tgt - f.yaw) * (RM ? 1 : easeOut((t - 40) / (CFG.ROLE_SWAP - 40))) + f.twist * Math.exp(-t / 70) * Math.cos(t / 38);
       const lu = easeU((t - CFG.LATCH_MS) / CFG.LIGHTS_MS);
-      if (k !== TRUSS) lamp = lu <= 0 ? C3.cool : lu < 0.35 ? C3.litHot : C3.lit;                  // окно: холодное → вспышка → зелёное «на питании»
-      // защёлки: 4 пальца вокруг шва, сжимаются к оси и держат, потом уходят в муфту
-      const lt = t / CFG.LATCH_MS;
-      if (t < CFG.LATCH_MS + CFG.LATCH_HOLD_MS + 200){
-        const close = easeOutBack(lt), shrink = 1 - easeU((t - CFG.LATCH_MS - CFG.LATCH_HOLD_MS) / 200);
+      lamp = lu <= 0 ? C3.cool : lu < 0.35 ? C3.litHot : C3.lit;                       // окно: холодное → вспышка → зелёное «на питании»
+      if (t < CFG.LATCH_MS + CFG.LATCH_HOLD_MS + 200){                                  // защёлки: 4 пальца вокруг шва, потом уходят в муфту
+        const close = easeOutBack(t / CFG.LATCH_MS), shrink = 1 - easeU((t - CFG.LATCH_MS - CFG.LATCH_HOLD_MS) / 200);
         putClaws(f.seam.x, f.seam.z, f.yaw, close, shrink, xf);
       }
     }
     lamp = lampOf(i, lamp);
-    if (winU >= 0 && k !== TRUSS){                                                 // победа: вещь выравнивается — капсулы вдоль своих линий
-      const u = easeOutBack((winU - 120 - Math.hypot(x - coreX, z - coreZ) * CFG.WIN_WAVE_MS) / 320);
-      if (u > 0) yaw = yaw0 + (axisYaw(yaw0, thumbYaw(s, i)) - yaw0) * u;
-    }
     const kn = knock(x, z), wv = dead ? 0 : waveAt(x, z); x += kn[0]; z += kn[1];
-    if (wv > 0){ if (wv > 0.3 && !tint) tint = C3.waveTint; if (!xf) R3.quad('glow', x, 0.02, z, (k === TRUSS ? 2.6 : 1.7), 1.7, k === TRUSS && Math.abs(partner(i) - i) !== 1 ? Math.PI / 2 : 0, C3.waveGlow, 0.55 * wv); }
-    putModule(k, x, z, yaw, 1 + CFG.WAVE_POP * wv, { sq, unfold, lamp, tint, xf });
-    shadowAt(x, z, k === TRUSS ? 1.7 : 0.95, xf, k === TRUSS ? (Math.abs(partner(i) - i) === 1 ? 0 : Math.PI / 2) : 0);
+    if (wv > 0){ if (wv > 0.3 && !tint) tint = C3.waveTint; if (!xf) R3.quad('glow', x, 0.02, z, (k === TRUSS ? 2.6 : 1.7), 1.7, k === TRUSS && vert ? Math.PI / 2 : 0, C3.waveGlow, 0.55 * wv); }
+    const pop = 1 + CFG.WAVE_POP * wv;
+    if (t < CFG.ROLE_SWAP) putModule(k, x, z, yaw, pop, { sq, lamp, tint, xf, en: enCol(0.3) });
+    else {
+      const ru = (t - CFG.ROLE_SWAP) / CFG.ROLE_MS, sc = pop * (RM ? 1 : 1 + 0.1 * bump(ru * 1.6)), dd = Math.max(ed[i], ed[j]) < 0 ? -1 : Math.min(...[ed[i], ed[j]].filter(v => v >= 0));
+      const en = dd < 0 ? C3.enOff : enAt(dd, now, winU, t < CFG.LATCH_MS);   // встал к обломку, а не к кораблю: тока нет
+      const o = { sc, tint, lamp, en, xf, now, sq: t < 400 ? sq : null };
+      if (k === TRUSS) putTrussRole(R.r[i], vert, R.side[i], x, z, easeU(ru), o); else putRole(R, i, x, z, easeU(ru), o);
+    }
+    shadowAt(x, z, k === TRUSS ? 1.7 : 0.95, xf, k === TRUSS ? (vert ? Math.PI / 2 : 0) : 0);
   }
-  // муфты между соседями станции (ядро и модули), кроме двух клеток одной фермы и шва, на котором ещё не сомкнулись защёлки
+  // связи между соседями корабля (ядро и модули): тёмная перемычка на шве и энергия от центра к центру; кроме двух клеток одной фермы
+  // и шва, на котором ещё не сомкнулись защёлки
   const st = (i) => (s.base[i] === CORE || s.occ[i] > 0) && !G.pending.has(i);
   for (let i = 0; i < s.occ.length && !gone; i++){
     if (!st(i)) continue; const x = i % s.w, y = (i - x) / s.w;
@@ -1661,30 +1822,28 @@ function render3D(now){
       const fi = G.cellFx[i], fj = G.cellFx[j], fresh = (f) => f && now - f.t0 < CFG.LATCH_MS;
       if (fresh(fi) || fresh(fj)) continue;
       const mx = cx(i) + dx * 0.5, mz = cz(i) + dy * 0.5, km = knock(mx, mz);
-      putM('collar', mx + km[0], 0, mz + km[1], dx ? 0 : Math.PI / 2, 1, tintDead, null, null, xf);
+      putM(G.etree.tree(i, j) ? 'conduit' : 'seam', mx + km[0], 0, mz + km[1], dx ? 0 : Math.PI / 2, 1, tintDead, null, null, xf, 0, 0, enAt(Math.min(ed[i], ed[j]) + 0.5, now, winU, false));
     }
   }
-  // детали вида: до победы не видны (v1.0 рисовала их голограммой — шум поверх станции; цель видна снимком в шапке),
-  // на победе достраиваются по одной (с хлопком), потом улетают вместе со станцией
-  if (!gone) s.deco.forEach((d, k) => {
-    const p = decoPos(d), nm = DECO_MODEL[d.t];
-    const at = G.decoAt[k];
-    if (at && now >= at){
-      const u = easeOutBack((now - at) / 260);
-      putM(nm, d.t === 'ring' ? p.cx : p.x, 0, d.t === 'ring' ? p.cz : p.z, p.yaw, u, null, d.t === 'mast' ? (Math.floor(now / (xf ? 140 : 400)) % 2 ? C3.lampMast : C3.winHot) : C3.lit, null, xf);
-      if (d.t === 'engine' && xf && fly.kind === 'rocket'){
-        // факел: разгорается на зажигании, на разгоне вытягивается; внутри — белое ядро; свечение у сопла; дым и искры остаются позади
-        const e = engineOut(d), fu = xf.a * (0.85 + 0.15 * Math.sin(now / 23 + k * 2)), len = fu * (1.5 + 3.6 * easeIn(xf.u)), wd = 1 + 0.75 * xf.a;
-        putM('flame', e.x, Y_MOD, e.z, e.yaw + Math.PI, [len, wd, wd], C3.flame, null, null, xf);
-        putM('flame', e.x, Y_MOD, e.z, e.yaw + Math.PI, [len * 0.55, wd * 0.55, wd * 0.55], C3.flameCore, null, null, xf);
-        glowX(xf, e.x + Math.cos(e.yaw) * 0.3, e.z - Math.sin(e.yaw) * 0.3, 1.5 + 0.9 * xf.u, C3.flame, 0.6 * fu);
-        if (G.frame % 2 === 0){
-          const w = X(xf, e.x, Y_MOD, e.z), ang = e.yaw + xf.rot;
-          if (xf.u <= 0) emit('smoke', w[0], 0.2, w[2], 2, { ang, spread: 2.2, v: 2.6, drag: 3.2, life: 620, r: 0.15, cols: SMOKE, jit: 0.1 });       // пар клубится у старта
-          else { emit('smoke', w[0], 0.2, w[2], 2, { ang, spread: 0.8, v: 1.1, drag: 3, life: 600, r: 0.13 + 0.1 * xf.u, cols: SMOKE, jit: 0.08 });   // шлейф дыма по пути
-            emit('streak', w[0], Y_MOD, w[2], 1, { ang, spread: 0.5, v: 5, drag: 2.5, life: 260, r: 0.035, col: '#ffd27a' }); }
-        }
+  // факелы: на поле — короткие у сопел (двигатель на питании мерцает), на финале «всё на максимум» разгораются, на зажигании и
+  // разгоне — длинные с белым ядром, дымом и искрами позади
+  if (!gone) (G.eng || []).forEach((e, k) => {
+    const f = G.cellFx[e.cells[0]], on = s.occ[e.cells[0]] > 0 && !G.pending.has(e.cells[0]), t = f ? now - f.t0 : 1e9;
+    if (!on || t < CFG.ROLE_SWAP + CFG.ROLE_MS * 0.5 || dead) return;
+    const ue = easeOut((t - CFG.ROLE_SWAP) / CFG.ROLE_MS), en = ue < 1 ? nozzleAt(e, ue) : e;
+    const fl = 0.85 + 0.15 * Math.sin(now / 37 + k * 2.1);
+    if (xf && fly.kind === 'rocket'){
+      const fu = xf.a * (0.85 + 0.15 * Math.sin(now / 23 + k * 2)), len = Math.max(CFG.FLAME_IDLE * 1.6, fu * (1.5 + 3.6 * easeIn(xf.u))), wd = 1 + 0.75 * xf.a;
+      putFlame(en, len, wd, 0.6 * Math.max(0.4, fu), xf);
+      if (G.frame % 2 === 0){
+        const w = X(xf, e.x, Y_MOD, e.z), ang = e.yaw + xf.rot;
+        if (xf.u <= 0) emit('smoke', w[0], 0.2, w[2], 2, { ang, spread: 2.2, v: 2.6, drag: 3.2, life: 620, r: 0.15, cols: SMOKE, jit: 0.1 });       // пар клубится у старта
+        else { emit('smoke', w[0], 0.2, w[2], 2, { ang, spread: 0.8, v: 1.1, drag: 3, life: 600, r: 0.13 + 0.1 * xf.u, cols: SMOKE, jit: 0.08 });   // шлейф дыма по пути
+          emit('streak', w[0], Y_MOD, w[2], 1, { ang, spread: 0.5, v: 5, drag: 2.5, life: 260, r: 0.035, col: e.booster ? '#ffd27a' : '#bff3ff' }); }
       }
+    } else {
+      const grow = easeU((t - CFG.ROLE_SWAP - CFG.ROLE_MS * 0.5) / 240), pw = winU >= 0 ? 1 + 0.7 * easeOut((winU - e.d * CFG.WIN_WAVE_MS) / 300) : 1;
+      putFlame(en, CFG.FLAME_IDLE * grow * fl * pw, 0.75 + 0.25 * pw, 0.32 * grow * pw, xf);   // xf — в тихом финале (reduced-motion) факел уменьшается вместе с кораблём
     }
   });
   // станция без сопел: свечение заряда под вещью, на отлёте — искры позади
@@ -1854,13 +2013,13 @@ function render2D(now){
   if (fly && !fly.skip && fly.kind !== 'calm' && now > fly.liftAt && now < fly.liftAt + CFG.LIFT_MS + 320){
     const N = 13, rocket = fly.kind === 'rocket', xs = [];
     for (let k = 0; k <= N; k++){ const x = flyXf(now - k * 24); if (!x || x.u <= 0) break; xs.push(x); }
-    const anchors = rocket ? fly.eng.map(k => engineOut(s.deco[k])) : [{ x: fly.c.x, z: fly.c.z }];
+    const anchors = rocket ? fly.eng : [{ x: fly.c.x, z: fly.c.z }];
     c.globalCompositeOperation = 'lighter';
     if (xs.length > 2) for (const an of anchors){
       const pts = xs.map(x => { const w = X(x, an.x, Y_MOD, an.z); return P(w[0], w[1], w[2]); }), a = pts[0], b = pts[pts.length - 1], len = Math.hypot(b.x - a.x, b.y - a.y);
       if (len < cp * 0.25) continue;
       const w0 = cp * (rocket ? 0.2 : 0.12 + 0.5 * xs[0].sc), g = c.createLinearGradient(a.x, a.y, b.x, b.y), k0 = Math.min(1, len / (cp * 1.5)) * (rocket ? 0.6 : 0.5);
-      g.addColorStop(0, rocket ? 'rgba(255,214,150,' + k0 + ')' : 'rgba(150,232,255,' + k0 + ')'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      g.addColorStop(0, rocket ? (an.booster ? 'rgba(255,214,150,' : 'rgba(150,226,255,') + k0 + ')' : 'rgba(150,232,255,' + k0 + ')'); g.addColorStop(1, 'rgba(0,0,0,0)');
       c.fillStyle = g; c.beginPath();
       for (let k = 0; k < pts.length; k++){ const q = pts[k], q2 = pts[Math.min(pts.length - 1, k + 1)], q1 = pts[Math.max(0, k - 1)], nx = -(q2.y - q1.y), ny = q2.x - q1.x, nl = Math.hypot(nx, ny) || 1, w = w0 * (1 - k / (pts.length - 1));
         if (k) c.lineTo(q.x + nx / nl * w, q.y + ny / nl * w); else c.moveTo(q.x + nx / nl * w, q.y + ny / nl * w); }
@@ -1911,56 +2070,54 @@ function puffSprite(col){
 // Значок «следующий в очереди»: маленькая площадка (цвета стартовой площадки) с модулем в его настоящих цветах —
 // белая капсула с оранжевыми поясами и окном, синяя панель в золотой раме, оранжевая ферма с крестами
 function drawChip(c, x, y, size, kind){
-  const h = size / 2, r = size * 0.28, u = size / 100;
-  c.beginPath(); c.roundRect(x - h, y - h, size, size, r); c.fillStyle = 'rgba(34,42,98,.97)'; c.fill(); c.lineWidth = Math.max(1.5, size * 0.07); c.strokeStyle = '#6f86ea'; c.stroke();
+  // v2.0 стиль A: графитовая плитка с бирюзовой кромкой; жилой — белые плиты и голубые окна, панель — две золотые, ферма — оранжевый крест
+  const h = size / 2, r = size * 0.24, u = size / 100;
+  c.beginPath(); c.roundRect(x - h, y - h, size, size, r); c.fillStyle = 'rgba(20,26,42,.96)'; c.fill(); c.lineWidth = Math.max(1.5, size * 0.07); c.strokeStyle = '#3fd8ff'; c.stroke();
   if (kind === SOLAR){
-    c.fillStyle = '#ffc130'; c.beginPath(); c.roundRect(x - 34 * u, y - 24 * u, 68 * u, 48 * u, 8 * u); c.fill();
-    c.fillStyle = '#2459e6'; for (const sx of [-1, 1]){ c.beginPath(); c.roundRect(x + (sx < 0 ? -27 : 3) * u, y - 17 * u, 24 * u, 34 * u, 5 * u); c.fill(); }
+    c.fillStyle = '#ffb72e'; for (const sy of [-1, 1]){ c.beginPath(); c.roundRect(x - 30 * u, y + (sy < 0 ? -26 : 4) * u, 60 * u, 22 * u, 6 * u); c.fill(); }
   } else if (kind === TRUSS){
-    c.strokeStyle = '#ff8a1f'; c.lineWidth = 9 * u; c.lineJoin = 'round'; c.lineCap = 'round'; c.beginPath(); c.roundRect(x - 34 * u, y - 18 * u, 68 * u, 36 * u, 4 * u); c.stroke();
-    c.strokeStyle = '#ffc130'; c.lineWidth = 7 * u; c.beginPath(); for (const sx of [-1, 1]){ c.moveTo(x + sx * 2 * u, y - 14 * u); c.lineTo(x + sx * 28 * u, y + 14 * u); c.moveTo(x + sx * 2 * u, y + 14 * u); c.lineTo(x + sx * 28 * u, y - 14 * u); } c.stroke();
+    c.strokeStyle = '#ff7a1a'; c.lineWidth = 9 * u; c.lineJoin = 'round'; c.lineCap = 'round'; c.beginPath(); c.roundRect(x - 32 * u, y - 18 * u, 64 * u, 36 * u, 4 * u); c.stroke();
+    c.lineWidth = 7 * u; c.beginPath(); c.moveTo(x - 26 * u, y - 13 * u); c.lineTo(x + 26 * u, y + 13 * u); c.moveTo(x - 26 * u, y + 13 * u); c.lineTo(x + 26 * u, y - 13 * u); c.stroke();
   } else {
-    c.fillStyle = '#f4f1fb'; c.beginPath(); c.roundRect(x - 36 * u, y - 23 * u, 72 * u, 46 * u, 23 * u); c.fill();
-    c.fillStyle = '#ff8a1f'; for (const sx of [-1, 1]) c.fillRect(x + sx * 20 * u - 4 * u, y - 23 * u, 8 * u, 46 * u);
-    c.fillStyle = '#59c8ff'; c.beginPath(); c.arc(x, y, 10 * u, 0, 6.283); c.fill();
+    c.fillStyle = '#dfe5f0'; for (const sx of [-1, 1]){ c.beginPath(); c.roundRect(x + (sx < 0 ? -34 : 16) * u, y - 28 * u, 18 * u, 56 * u, 6 * u); c.fill(); }
+    c.fillStyle = '#59c8ff'; for (const sy of [-1, 1]){ c.beginPath(); c.roundRect(x - 9 * u, y + (sy < 0 ? -20 : 4) * u, 18 * u, 16 * u, 4 * u); c.fill(); }
   }
 }
 // Картинки для 2D-слоя (значки GPT): батарейка у «−1», рука подсказки — стрелка-шеврон
 const IMG = { bat: new Image(), hand: new Image() };
 IMG.bat.src = UI + 'bat-off.png'; IMG.hand.src = UI + 'ic-play.png';
 
-// --- снимок готового объекта (карточка победы и ангар): та же сборка моделей, центр в ядре ---
+// --- снимок готового корабля (карточка победы, флот, цель в шапке): роли раскрыты, энергия ровная, факелы короткие; центр в ядре ---
 function thumb(li, holo, fresh){
   if (!R3.ready) return '';
   const key = li + (holo ? 'h' : '');
   if (G.thumbs[key] && !fresh) return G.thumbs[key];
-  const lay = layoutOf(li), s0 = G.s;
-  G.s = stateFromLayout(lay, li);                                          // помощники cx/cz/decoPos читают G.s
-  const c0 = lay.core[0], ox = cx(c0), oz = cz(c0), span = Math.max(lay.w, lay.h) * 0.72 + 0.8;
+  const lay = layoutOf(li), s0 = G.s, R = roleOpen(shipRoles(lay), lay);
+  G.s = stateFromLayout(lay, li);                                          // помощники cx/cz/partner читают G.s
+  // рамка снимка — по раскрытому кораблю: клетки корабля + нос (0,45), крылья (0,45), сопла с факелом (до 1,6 у ускорителя); центр — середина рамки
+  let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; const c0 = lay.core[0];
+  for (let i = 0; i < lay.bp.length; i++){ if (!(lay.bp[i] > 0 || i === c0)) continue; const r = R.r[i];
+    x0 = Math.min(x0, cx(i) - 0.5 - (r === 'W' && R.side[i] < 0 ? 0.45 : 0) - (r === 'X' && R.side[i] < 0 ? 0.45 : 0)); x1 = Math.max(x1, cx(i) + 0.5 + (r === 'W' && R.side[i] > 0 ? 0.45 : 0) + (r === 'X' && R.side[i] > 0 ? 0.45 : 0));
+    z0 = Math.min(z0, cz(i) - 0.5 - (r === 'K' || r === 'L' ? 0.45 : 0)); z1 = Math.max(z1, cz(i) + 0.5 + (r === 'E' ? 0.75 : r === 'B' ? 1.1 : 0)); }
+  const ox = (x0 + x1) / 2, oz = (z0 + z1) / 2, span = Math.max(x1 - x0, (z1 - z0) * 0.92) * 0.78 + 0.3;
   const url = R3.snapshot(() => {
-    const col = holo ? R3.color('#5fe8ff', 0.7) : null, mode = holo ? 'holo' : null;
-    if (!holo){ putM('core', -0, 0, 0, 0, 1, null, C3.core); putM('coreRing', 0, 0, 0, 0.5, 1, null, C3.core); }
+    const mode = holo ? 'holo' : null, col = holo ? R3.color('#5fe8ff', 0.7) : null, en = enCol(0.9), o = { lamp: holo ? col : C3.lit, tint: col, en, mode, now: 0 };
+    putM('core', cx(c0) - ox, 0, cz(c0) - oz, 0, 1, col, holo ? col : C3.core, mode, null, 0, 0, en); if (!holo) putM('coreRing', cx(c0) - ox, 0, cz(c0) - oz, 0.5, 1, null, C3.core);
     for (let i = 0; i < lay.bp.length; i++){
       const k = lay.bp[i]; if (!k) continue;
       let x = cx(i) - ox, z = cz(i) - oz;
-      if (k === TRUSS){ const j = partner(i); if (j < i) continue; x = (cx(i) + cx(j)) / 2 - ox; z = (cz(i) + cz(j)) / 2 - oz; }
-      const yaw = k === TRUSS ? (Math.abs(partner(i) - i) === 1 ? 0 : Math.PI / 2) : thumbYaw(lay, i);
-      putModule(k, x, z, yaw, 1, holo ? { mode, col, unfold: 1 } : { lamp: k === TRUSS ? C3.lampMast : C3.lit });
+      if (k === TRUSS){ const j = partner(i); if (j < i) continue; putTrussRole(R.r[i], Math.abs(j - i) !== 1, R.side[i], (cx(i) + cx(j)) / 2 - ox, (cz(i) + cz(j)) / 2 - oz, 1, o); }
+      else putRole(R, i, x, z, 1, o);
     }
-    if (!holo) for (let i = 0; i < lay.bp.length; i++){ const st = (j) => lay.base[j] === CORE || lay.bp[j] > 0, x = i % lay.w, y = (i - x) / lay.w; if (!st(i)) continue;
+    if (holo) return;
+    const ET = energyTree(lay.w, lay.bp.length, c0, (j) => lay.base[j] === CORE || lay.bp[j] > 0);
+    for (let i = 0; i < lay.bp.length; i++){ const st = (j) => lay.base[j] === CORE || lay.bp[j] > 0, x = i % lay.w, y = (i - x) / lay.w; if (!st(i)) continue;
       for (const [dx, dy] of [[1, 0], [0, 1]]){ const j = (y + dy) * lay.w + x + dx; if (x + dx >= lay.w || y + dy >= lay.h || !st(j)) continue;
-        if (lay.bp[i] === TRUSS && lay.bp[j] === TRUSS && lay.grp[i] === lay.grp[j]) continue; putM('collar', cx(i) + dx * 0.5 - ox, 0, cz(i) + dy * 0.5 - oz, dx ? 0 : Math.PI / 2, 1); } }
-    lay.deco.forEach(d => { const p = decoPos(d); putM(DECO_MODEL[d.t], (d.t === 'ring' ? p.cx : p.x) - ox, 0, (d.t === 'ring' ? p.cz : p.z) - oz, p.yaw, 1, holo ? col : null, C3.lit, mode); });
+        if (lay.bp[i] === TRUSS && lay.bp[j] === TRUSS && lay.grp[i] === lay.grp[j]) continue; putM(ET.tree(i, j) ? 'conduit' : 'seam', cx(i) + dx * 0.5 - ox, 0, cz(i) + dy * 0.5 - oz, dx ? 0 : Math.PI / 2, 1, null, null, null, null, 0, 0, en); } }
+    for (const e of enginePts(G.s, R)) putFlame({ x: e.x - ox, z: e.z - oz, yaw: e.yaw, booster: e.booster }, CFG.FLAME_IDLE * 1.5, 1, 0.4, null);
   }, 256, span);
   G.s = s0;
   return (G.thumbs[key] = url);
-}
-// Курс капсулы на снимке: вдоль ряда, если соседи по ряду есть, иначе вдоль столбца
-// Курс капсулы в готовой вещи (снимок и доворот на победе): вдоль линии, где соседей станции больше; поровну — вертикально
-function thumbYaw(lay, i){
-  const x = i % lay.w, st = (j) => j >= 0 && j < lay.bp.length && (lay.base[j] === CORE || lay.bp[j] > 0);
-  const h = (x > 0 && st(i - 1) ? 1 : 0) + (x < lay.w - 1 && st(i + 1) ? 1 : 0), v = (st(i - lay.w) ? 1 : 0) + (st(i + lay.w) ? 1 : 0);
-  return h > v ? 0 : Math.PI / 2;
 }
 // Ближайший к from угол из двух направлений оси (капсула симметрична: ось, а не курс)
 function axisYaw(from, axis){ let best = axis, bd = 9; for (const a of [axis, axis + Math.PI, axis - Math.PI]){ const d = Math.abs(((from - a) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI); if (d < bd){ bd = d; best = from + (((a - from) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI); } } return best; }
